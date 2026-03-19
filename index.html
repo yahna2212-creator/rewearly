@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rewearly | Premium Fashion Rental</title>
+  <meta name="description" content="Rewearly is a premium fashion rental marketplace for luxury outfits, curated wardrobes, and seller-managed designer pieces.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="water-wave water-wave-one"></div>
+  <div class="water-wave water-wave-two"></div>
+
+  <header class="site-header shell" id="top">
+    <a href="#top" class="brand">
+      <span class="brand-mark">
+        <img src="logo.png" alt="Rewearly logo">
+      </span>
+      <div>
+        <p class="eyebrow">Luxury rental marketplace</p>
+        <h1>Rewearly</h1>
+      </div>
+    </a>
+    <nav class="header-actions">
+      <button class="ghost-btn" id="catalogBtn" type="button">Catalog</button>
+      <button class="ghost-btn" id="sellerDashboardBtn" type="button">Seller Dashboard</button>
+      <button class="ghost-btn" id="adminBtn" type="button">Admin</button>
+      <button class="ghost-btn" id="cartBtn" type="button">Cart <span class="pill-count" id="cartCount">0</span></button>
+      <button class="primary-btn" id="authBtn" type="button">Login / Sign up</button>
+      <button class="ghost-btn hidden" id="logoutBtn" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero shell">
+      <div class="hero-copy glass-panel">
+        <p class="eyebrow">Curated occasionwear. Circular luxury.</p>
+        <h2>Rewearly</h2>
+        <p class="hero-tagline">Rewear the extraordinary</p>
+        <p class="hero-text">Discover statement wardrobes, reserve exact dates, and earn from your own designer pieces through a premium rental experience.</p>
+        <div class="hero-actions">
+          <button class="primary-btn" id="heroBrowseBtn" type="button">Explore Rentals</button>
+          <button class="ghost-btn" id="heroUploadBtn" type="button">List an Outfit</button>
+        </div>
+        <div class="hero-metrics">
+          <div><strong id="metricProducts">0</strong><span>Curated listings</span></div>
+          <div><strong>30 min</strong><span>Booking lock window</span></div>
+          <div><strong>12 rentals</strong><span>Lifecycle cap per piece</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Search the collection</p>
+          <h2>Find your next rental by vibe, budget, or date.</h2>
+        </div>
+        <button class="ghost-btn" id="refreshBtn" type="button">Refresh</button>
+      </div>
+      <div class="filters glass-panel">
+        <label class="field"><span>Search</span><input id="searchInput" type="search" placeholder="Search title, description, category"></label>
+        <label class="field"><span>Category</span><select id="categoryFilter"><option value="">All categories</option></select></label>
+        <label class="field"><span>Max daily price</span><input id="priceFilter" type="number" min="0" placeholder="No cap"></label>
+        <label class="field"><span>Available from</span><input id="availabilityStart" type="date"></label>
+        <label class="field"><span>Available to</span><input id="availabilityEnd" type="date"></label>
+        <button class="secondary-btn" id="clearFiltersBtn" type="button">Clear Filters</button>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Rental catalog</p>
+          <h2>Large-format pieces, precise booking, premium finish.</h2>
+        </div>
+        <p class="muted" id="catalogSummary">Loading curated inventory...</p>
+      </div>
+      <div class="product-grid" id="productsGrid"></div>
+      <div class="empty-state glass-panel hidden" id="catalogEmpty">
+        <h3>No products match those filters.</h3>
+        <p>Try a broader date range, adjust your price ceiling, or clear filters.</p>
+      </div>
+    </section>
+
+    <section class="section shell dashboards">
+      <article class="glass-panel dashboard-card">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Seller workspace</p>
+            <h2>Upload, track approvals, and follow earnings.</h2>
+          </div>
+          <button class="primary-btn" id="openUploadBtn" type="button">Upload Outfit</button>
+        </div>
+        <div class="stats-grid" id="sellerStats"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Product</th><th>Status</th><th>Ownership</th><th>Earnings</th><th>History</th></tr></thead>
+            <tbody id="sellerProductsTable"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="glass-panel dashboard-card" id="adminDashboardSection">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Admin command center</p>
+            <h2>Control pricing, approvals, payouts, and lifecycle.</h2>
+          </div>
+          <button class="secondary-btn" id="reloadAdminBtn" type="button">Reload Admin Data</button>
+        </div>
+        <div class="stats-grid" id="adminStats"></div>
+        <div class="admin-layout">
+          <div class="admin-panel">
+            <h3>Orders</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Order</th><th>User</th><th>Status</th><th>Total</th><th>Update</th></tr></thead>
+                <tbody id="ordersTable"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="admin-panel">
+            <h3>Products</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Product</th><th>State</th><th>Price</th><th>Damage</th><th>Action</th></tr></thead>
+                <tbody id="adminProductsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <aside class="drawer hidden" id="cartDrawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div><p class="eyebrow">Your rental bag</p><h2>Cart</h2></div>
+      <button class="icon-btn" id="closeCartBtn" type="button" aria-label="Close cart">x</button>
+    </div>
+    <div class="drawer-body" id="cartItems"></div>
+    <div class="drawer-foot">
+      <div class="total-line"><span>Total</span><strong id="cartTotal">Rs 0</strong></div>
+      <button class="primary-btn full-width" id="checkoutBtn" type="button">Create Order & Pay via UPI</button>
+    </div>
+  </aside>
+
+  <div class="modal hidden" id="authModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card">
+      <button class="icon-btn modal-close" data-close-modal="authModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Single account for renters and sellers</p>
+        <h2>Sign in or create your Rewearly profile</h2>
+        <p class="muted auth-note" id="authHelperText">Sign up once, then log in with the same email and password.</p>
+      </div>
+      <div class="auth-tabs">
+        <button class="tab-btn active" data-auth-mode="login" type="button">Login</button>
+        <button class="tab-btn" data-auth-mode="signup" type="button">Sign up</button>
+      </div>
+      <form id="authForm" class="form-grid">
+        <label class="field signup-only hidden"><span>Full name</span><input id="authName" type="text" maxlength="120" placeholder="Your name"></label>
+        <label class="field"><span>Email</span><input id="authEmail" type="email" required placeholder="name@example.com"></label>
+        <label class="field"><span>Password</span><input id="authPassword" type="password" required minlength="6" placeholder="Minimum 6 characters"></label>
+        <label class="field signup-only hidden"><span>Phone</span><input id="authPhone" type="tel" maxlength="20" placeholder="+91"></label>
+        <label class="field signup-only hidden"><span>Address</span><textarea id="authAddress" rows="3" placeholder="Delivery and pickup address"></textarea></label>
+        <button class="primary-btn full-width" id="authSubmitBtn" type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="uploadModal" aria-hidden="true">
+    <div class="modal-card glass-panel upload-card">
+      <button class="icon-btn modal-close" data-close-modal="uploadModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Seller intake</p>
+        <h2>Upload a piece for admin review</h2>
+      </div>
+      <form id="uploadForm" class="form-grid two-column">
+        <label class="field"><span>Title</span><input id="uploadTitle" type="text" maxlength="180" required placeholder="Ivory embellished lehenga"></label>
+        <label class="field"><span>Category</span><input id="uploadCategory" type="text" maxlength="100" required placeholder="Lehenga, Gown, Blazer"></label>
+        <label class="field wide"><span>Description</span><textarea id="uploadDescription" rows="4" required placeholder="Fabric, fit, styling notes, sizing, and standout details"></textarea></label>
+        <label class="field"><span>Requested daily price</span><input id="uploadPrice" type="number" min="1" step="1" required placeholder="5000"></label>
+        <label class="field"><span>Condition</span><select id="uploadCondition" required><option value="new_with_tags">New with tags</option><option value="excellent">Excellent</option><option value="very_good">Very good</option><option value="good">Good</option></select></label>
+        <label class="field"><span>Ownership type</span><select id="uploadOwnership" required><option value="marketplace">Marketplace product</option><option value="owned">Owned product</option></select></label>
+        <label class="field"><span>Royalty percent (owned products)</span><input id="uploadRoyaltyPercent" type="number" min="0" max="100" step="1" placeholder="10"></label>
+        <label class="field wide"><span>Images (1-5)</span><input id="uploadImages" type="file" accept="image/*" multiple required></label>
+        <button class="primary-btn wide" type="submit">Submit for approval</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="rentalModal" aria-hidden="true">
+    <div class="modal-card glass-panel rental-card">
+      <button class="icon-btn modal-close" data-close-modal="rentalModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Rental booking</p>
+        <h2 id="rentalModalTitle">Reserve your dates</h2>
+      </div>
+      <div class="rental-layout">
+        <div class="rental-preview">
+          <img id="rentalImage" src="" alt="">
+          <div><h3 id="rentalProductTitle"></h3><p id="rentalProductMeta" class="muted"></p></div>
+        </div>
+        <form id="rentalForm" class="form-grid">
+          <div class="calendar-grid">
+            <label class="field"><span>Start date</span><input id="rentalStartDate" type="date" required></label>
+            <label class="field"><span>End date</span><input id="rentalEndDate" type="date" required></label>
+          </div>
+          <div class="availability-panel" id="availabilityPanel"></div>
+          <div class="quote-panel">
+            <div class="quote-line"><span>Rental days</span><strong id="rentalDays">0</strong></div>
+            <div class="quote-line"><span>Daily rate</span><strong id="rentalRate">Rs 0</strong></div>
+            <div class="quote-line total"><span>Line total</span><strong id="rentalLineTotal">Rs 0</strong></div>
+          </div>
+          <button class="primary-btn full-width" type="submit">Add To Cart</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="productEditModal" aria-hidden="true">
+    <div class="modal-card glass-panel upload-card">
+      <button class="icon-btn modal-close" data-close-modal="productEditModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Admin product editor</p>
+        <h2>Edit listing details and pricing</h2>
+      </div>
+      <form id="productEditForm" class="form-grid two-column">
+        <input id="editProductId" type="hidden">
+        <label class="field"><span>Title</span><input id="editTitle" type="text" required></label>
+        <label class="field"><span>Category</span><input id="editCategory" type="text" required></label>
+        <label class="field wide"><span>Description</span><textarea id="editDescription" rows="4" required></textarea></label>
+        <label class="field"><span>Final daily rental price</span><input id="editFinalPrice" type="number" min="0" step="1" required></label>
+        <label class="field"><span>Seller payout</span><input id="editSellerPayout" type="number" min="0" step="1" required></label>
+        <label class="field"><span>Royalty percent</span><input id="editRoyaltyPercent" type="number" min="0" max="100" step="1" required></label>
+        <label class="field"><span>Ownership type</span><select id="editOwnershipType" required><option value="marketplace">Marketplace</option><option value="owned">Owned</option></select></label>
+        <label class="field"><span>Condition</span><select id="editCondition" required><option value="new_with_tags">New with tags</option><option value="excellent">Excellent</option><option value="very_good">Very good</option><option value="good">Good</option></select></label>
+        <label class="field"><span>Approved</span><select id="editApproved" required><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label class="field"><span>Active</span><select id="editActive" required><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label class="field"><span>Damage state</span><select id="editDamageState" required><option value="active">Active</option><option value="damaged">Damaged</option></select></label>
+        <label class="field wide"><span>Image URLs (comma separated)</span><textarea id="editImages" rows="3" placeholder="https://..., https://..."></textarea></label>
+        <button class="primary-btn wide" type="submit">Save product changes</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    window.REWEARLY_CONFIG = window.REWEARLY_CONFIG || {
+      supabaseUrl: "https://uigdcsgibwrvlyshegwq.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpZ2Rjc2dpYndydmx5c2hlZ3dxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTMxMTUsImV4cCI6MjA4OTQyOTExNX0.5HV3ZGEPAdWbtNUSthcErZUHJuGG_P7pUQq1DjIsyHU"
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

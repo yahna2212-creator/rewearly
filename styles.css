@@ -227,6 +227,20 @@ a {
   justify-content: flex-end;
 }
 
+.auth-status {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  color: var(--gold-soft);
+}
+
+.dashboard-status {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .primary-btn,
 .secondary-btn,
 .ghost-btn,
@@ -712,6 +726,12 @@ th {
 .auth-note {
   margin-top: 0.75rem;
   max-width: 34rem;
+}
+
+.form-feedback {
+  min-height: 1.4rem;
+  margin: 0;
+  text-align: center;
 }
 
 .modal-head h2 {

@@ -36,6 +36,10 @@
     </nav>
   </header>
 
+  <div class="shell">
+    <div class="auth-status glass-panel" id="authStatus">Not logged in.</div>
+  </div>
+
   <main>
     <section class="hero shell">
       <div class="hero-copy glass-panel">
@@ -94,6 +98,7 @@
           <div>
             <p class="eyebrow">Seller workspace</p>
             <h2>Upload, track approvals, and follow earnings.</h2>
+            <p class="dashboard-status" id="sellerAccessStatus">Login required for seller tools.</p>
           </div>
           <button class="primary-btn" id="openUploadBtn" type="button">Upload Outfit</button>
         </div>
@@ -180,6 +185,7 @@
       <div class="modal-head">
         <p class="eyebrow">Seller intake</p>
         <h2>Upload a piece for admin review</h2>
+        <p class="muted auth-note">Upload 1 to 5 images from your device. Images are compressed automatically for faster saves.</p>
       </div>
       <form id="uploadForm" class="form-grid two-column">
         <label class="field"><span>Title</span><input id="uploadTitle" type="text" maxlength="180" required placeholder="Ivory embellished lehenga"></label>
@@ -191,6 +197,7 @@
         <label class="field"><span>Royalty percent (owned products)</span><input id="uploadRoyaltyPercent" type="number" min="0" max="100" step="1" placeholder="10"></label>
         <label class="field wide"><span>Images (1-5)</span><input id="uploadImages" type="file" accept="image/*" multiple required></label>
         <button class="primary-btn wide" type="submit">Submit for approval</button>
+        <p class="muted wide form-feedback" id="uploadFeedback"></p>
       </form>
     </div>
   </div>
@@ -244,8 +251,27 @@
         <label class="field"><span>Approved</span><select id="editApproved" required><option value="true">Yes</option><option value="false">No</option></select></label>
         <label class="field"><span>Active</span><select id="editActive" required><option value="true">Yes</option><option value="false">No</option></select></label>
         <label class="field"><span>Damage state</span><select id="editDamageState" required><option value="active">Active</option><option value="damaged">Damaged</option></select></label>
+        <label class="field wide"><span>Rejection reason</span><textarea id="editRejectionReason" rows="3" placeholder="Optional admin note for seller review"></textarea></label>
         <label class="field wide"><span>Image URLs (comma separated)</span><textarea id="editImages" rows="3" placeholder="https://..., https://..."></textarea></label>
         <button class="primary-btn wide" type="submit">Save product changes</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="rejectModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card">
+      <button class="icon-btn modal-close" data-close-modal="rejectModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Admin review</p>
+        <h2>Reject product with reason</h2>
+      </div>
+      <form id="rejectForm" class="form-grid">
+        <input id="rejectProductId" type="hidden">
+        <label class="field">
+          <span>Reason for rejection</span>
+          <textarea id="rejectReason" rows="4" required placeholder="Tell the seller what needs to be fixed or why the product was rejected"></textarea>
+        </label>
+        <button class="primary-btn full-width" type="submit">Reject product</button>
       </form>
     </div>
   </div>

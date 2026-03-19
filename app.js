@@ -1,8 +1,8 @@
-const ADMIN_EMAIL = "yahna2212@gmail.com";
-const STORAGE_BUCKET = "products";
+﻿const ADMIN_EMAIL = "yahna2212@gmail.com";
 const BUFFER_DAYS = 3;
 const LOCK_MINUTES = 30;
 const CART_STORAGE_KEY = "rewearly_cart_v1";
+const STORAGE_BUCKET = "products";
 
 const state = {
   supabase: null,
@@ -21,7 +21,8 @@ const state = {
   adminOrders: [],
   adminEarnings: [],
   selectedProduct: null,
-  configErrorShown: false
+  configErrorShown: false,
+  sessionSyncPromise: Promise.resolve()
 };
 
 const dom = {};
@@ -44,6 +45,7 @@ async function init() {
 function cacheDom() {
   const ids = [
     "authBtn", "logoutBtn", "catalogBtn", "sellerDashboardBtn", "adminBtn", "cartBtn", "cartCount",
+    "authStatus", "sellerAccessStatus",
     "heroBrowseBtn", "heroUploadBtn", "refreshBtn", "clearFiltersBtn", "reloadAdminBtn",
     "searchInput", "categoryFilter", "priceFilter", "availabilityStart", "availabilityEnd",
     "productsGrid", "catalogSummary", "catalogEmpty", "metricProducts",
@@ -52,11 +54,13 @@ function cacheDom() {
     "authModal", "authForm", "authSubmitBtn", "authName", "authEmail", "authPassword", "authPhone", "authAddress", "authHelperText",
     "uploadModal", "uploadForm", "uploadTitle", "uploadCategory", "uploadDescription", "uploadPrice",
     "uploadCondition", "uploadOwnership", "uploadRoyaltyPercent", "uploadImages", "openUploadBtn",
+    "uploadFeedback",
     "rentalModal", "rentalForm", "rentalModalTitle", "rentalImage", "rentalProductTitle", "rentalProductMeta",
     "rentalStartDate", "rentalEndDate", "availabilityPanel", "rentalDays", "rentalRate", "rentalLineTotal",
     "productEditModal", "productEditForm", "editProductId", "editTitle", "editCategory", "editDescription",
     "editFinalPrice", "editSellerPayout", "editRoyaltyPercent", "editOwnershipType", "editCondition",
-    "editApproved", "editActive", "editDamageState", "editImages", "toastStack", "adminDashboardSection"
+    "editApproved", "editActive", "editDamageState", "editRejectionReason", "editImages", "toastStack", "adminDashboardSection",
+    "rejectModal", "rejectForm", "rejectProductId", "rejectReason"
   ];
   ids.forEach((id) => {
     dom[id] = document.getElementById(id);
@@ -110,8 +114,10 @@ function bindEvents() {
 
   dom.authForm.addEventListener("submit", handleAuthSubmit);
   dom.uploadForm.addEventListener("submit", handleUploadSubmit);
+  dom.uploadForm.addEventListener("invalid", handleUploadInvalid, true);
   dom.rentalForm.addEventListener("submit", handleRentalSubmit);
   dom.productEditForm.addEventListener("submit", handleProductEditSubmit);
+  dom.rejectForm.addEventListener("submit", handleRejectSubmit);
   dom.rentalStartDate.addEventListener("change", updateRentalQuote);
   dom.rentalEndDate.addEventListener("change", updateRentalQuote);
 }
@@ -124,14 +130,15 @@ function setupSupabase() {
   }
 
   state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-  state.supabase.auth.onAuthStateChange(async (_event, session) => {
-    state.currentUser = session?.user || null;
-    if (state.currentUser) {
-      await ensureProfileRecord(state.currentUser);
+  state.supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === "SIGNED_OUT") {
+      await syncSessionState(null);
+      return;
     }
-    await loadProfile();
-    renderUserState();
-    await refreshAllData();
+
+    if (session?.user) {
+      await syncSessionState(session.user);
+    }
   });
 }
 
@@ -141,17 +148,24 @@ async function bootstrap() {
     return;
   }
 
-  const { data, error } = await state.supabase.auth.getUser();
+  const { data, error } = await state.supabase.auth.getSession();
   if (error) {
     notify(error.message, "error");
   }
-  state.currentUser = data?.user || null;
-  if (state.currentUser) {
-    await ensureProfileRecord(state.currentUser);
-  }
-  await loadProfile();
-  renderUserState();
-  await refreshAllData();
+  await syncSessionState(data?.session?.user || null);
+}
+
+async function syncSessionState(user) {
+  state.sessionSyncPromise = state.sessionSyncPromise
+    .catch(() => {})
+    .then(async () => {
+      state.currentUser = user;
+      await loadProfile();
+      renderUserState();
+      await refreshAllData();
+    });
+
+  return state.sessionSyncPromise;
 }
 
 async function refreshAllData() {
@@ -181,35 +195,52 @@ async function loadProfile() {
 
   const { data, error } = await state.supabase.from("profiles").select("*").eq("id", state.currentUser.id).maybeSingle();
   if (error) {
-    notify(error.message, "error");
+    state.profile = buildProfileFallback(state.currentUser);
     return;
   }
-  state.profile = data || null;
-  if (!state.profile) {
-    state.profile = await ensureProfileRecord(state.currentUser);
-  }
+  state.profile = data || buildProfileFallback(state.currentUser);
 }
 
-async function ensureProfileRecord(user) {
-  if (!user || !ensureSupabase(true)) {
-    return null;
-  }
-
-  const metadata = user.user_metadata || {};
-  const payload = {
+function buildProfileFallback(user) {
+  const metadata = user?.user_metadata || {};
+  return user ? {
     id: user.id,
     name: metadata.name || user.email?.split("@")[0] || "Rewearly User",
     email: user.email || "",
     phone: metadata.phone || "Pending",
     address: metadata.address || "Pending"
-  };
+  } : null;
+}
 
-  const { data, error } = await state.supabase.from("profiles").upsert(payload).select().maybeSingle();
-  if (error) {
-    notify(error.message, "error");
+async function ensureProfileRecord(user, options = {}) {
+  if (!user || !ensureSupabase(true)) {
     return null;
   }
-  return data || payload;
+
+  const payload = buildProfileFallback(user);
+  const quiet = Boolean(options.quiet);
+
+  try {
+    const profilePromise = state.supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" });
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Profile sync timed out. Check profiles table policies in Supabase.")), 12000);
+    });
+    const result = await Promise.race([profilePromise, timeoutPromise]);
+    if (result?.error) {
+      if (!quiet) {
+        notify(result.error.message, "error");
+      }
+      return null;
+    }
+    return payload;
+  } catch (error) {
+    if (!quiet) {
+      notify(error instanceof Error ? error.message : "Profile sync failed.", "error");
+    }
+    return null;
+  }
 }
 
 async function loadProducts() {
@@ -388,7 +419,7 @@ function renderProducts(list = state.filteredProducts) {
           </div>
           <h3>${escapeHtml(product.title)}</h3>
           <p>${escapeHtml(product.description || "Premium rental piece.")}</p>
-          <p class="muted">Condition: ${formatText(product.condition)} • Rentals: ${product.total_rentals}/${product.max_rentals}</p>
+          <p class="muted">Condition: ${formatText(product.condition)} | Rentals: ${product.total_rentals}/${product.max_rentals}</p>
           <p class="muted">${blockedWindows.length ? `Next blocked windows: ${escapeHtml(blockedWindows.join(" | "))}` : "Open for booking"}</p>
           <div class="price-line">
             <div><div class="price">${formatCurrency(product.final_price)}</div><div class="muted">per day</div></div>
@@ -435,9 +466,16 @@ function clearFilters() {
 
 function renderSellerDashboard() {
   if (!state.currentUser) {
+    if (dom.sellerAccessStatus) {
+      dom.sellerAccessStatus.textContent = "Login required for seller tools.";
+    }
     dom.sellerStats.innerHTML = createPlaceholderStats("Login to upload outfits, view approvals, and track rental income.");
     dom.sellerProductsTable.innerHTML = `<tr><td colspan="5" class="muted">Your seller dashboard will appear after login.</td></tr>`;
     return;
+  }
+
+  if (dom.sellerAccessStatus) {
+    dom.sellerAccessStatus.textContent = `Seller access active for ${state.profile?.email || state.currentUser.email || "your account"}.`;
   }
 
   const totalEarnings = sumBy(state.sellerEarnings, "amount");
@@ -470,7 +508,7 @@ function renderSellerDashboard() {
       <tr>
         <td><strong>${escapeHtml(product.title)}</strong><br><span class="muted">${escapeHtml(product.category || "Uncategorized")}</span></td>
         <td><span class="status ${status.toLowerCase()}">${escapeHtml(status)}</span></td>
-        <td>${product.ownership_type === "owned" ? "Owned • Royalty" : "Marketplace • Payout"}</td>
+        <td>${product.ownership_type === "owned" ? "Owned | Royalty" : "Marketplace | Payout"}${product.rejection_reason ? `<br><span class="muted">Reason: ${escapeHtml(product.rejection_reason)}</span>` : ""}</td>
         <td>${formatCurrency(earningsByProduct.get(product.id) || 0)}</td>
         <td>${historyCount.get(product.id) || 0} rentals</td>
       </tr>
@@ -555,8 +593,8 @@ function renderCart() {
   dom.cartItems.innerHTML = state.cart.map((item) => `
     <article class="cart-item">
       <h3>${escapeHtml(item.title)}</h3>
-      <p>${formatDate(item.startDate)} to ${formatDate(item.endDate)} • ${item.days} day${item.days > 1 ? "s" : ""}</p>
-      <p class="muted">Lock expires ${formatDateTime(item.blockedUntil)} • ${formatCurrency(item.dailyRate)}/day</p>
+      <p>${formatDate(item.startDate)} to ${formatDate(item.endDate)} | ${item.days} day${item.days > 1 ? "s" : ""}</p>
+      <p class="muted">Lock expires ${formatDateTime(item.blockedUntil)} | ${formatCurrency(item.dailyRate)}/day</p>
       <div class="price-line">
         <strong>${formatCurrency(item.lineTotal)}</strong>
         <button class="mini-btn" data-action="remove-cart-item" data-lock-id="${item.lockId}" type="button">Remove</button>
@@ -570,6 +608,15 @@ function renderUserState() {
   const loggedIn = Boolean(state.currentUser);
   dom.authBtn.textContent = loggedIn ? (state.profile?.name || state.currentUser.email || "Account") : "Login / Sign up";
   dom.logoutBtn.classList.toggle("hidden", !loggedIn);
+  dom.adminBtn.classList.toggle("hidden", !isAdmin());
+  if (dom.authStatus) {
+    dom.authStatus.textContent = loggedIn
+      ? `Signed in as ${state.profile?.email || state.currentUser.email || "your account"}.`
+      : "Not logged in.";
+  }
+  if (loggedIn && dom.sellerStats?.textContent?.includes("Login to upload outfits")) {
+    renderSellerDashboard();
+  }
 }
 
 function renderAuthMode() {
@@ -586,6 +633,7 @@ function renderAuthMode() {
 
 function handleAuthButton() {
   if (state.currentUser) {
+    renderSellerDashboard();
     notify(`Signed in as ${state.profile?.name || state.currentUser.email}.`, "info");
     scrollToElement(dom.sellerStats);
     return;
@@ -630,6 +678,7 @@ async function handleAuthSubmit(event) {
 
   let authError = null;
   let user = null;
+  let sessionUser = null;
 
   if (state.authMode === "signup") {
     const payload = { name: dom.authName.value.trim(), phone: dom.authPhone.value.trim(), address: dom.authAddress.value.trim() };
@@ -642,12 +691,14 @@ async function handleAuthSubmit(event) {
     authError = error;
     user = data?.user || null;
     const session = data?.session || null;
+    sessionUser = session?.user || null;
 
     if (!authError && user) {
-      const upsertRes = await state.supabase.from("profiles").upsert({ id: user.id, name: payload.name, email, phone: payload.phone, address: payload.address });
-      if (upsertRes.error) {
-        notify(upsertRes.error.message, "error");
-      }
+      await ensureProfileRecord({
+        ...user,
+        email,
+        user_metadata: payload
+      }, { quiet: true });
     }
 
     if (!authError && !session) {
@@ -660,6 +711,7 @@ async function handleAuthSubmit(event) {
     const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
     authError = error;
     user = data?.user || null;
+    sessionUser = data?.session?.user || null;
   }
 
   if (authError) {
@@ -676,14 +728,34 @@ async function handleAuthSubmit(event) {
     return;
   }
 
+  if (!user && sessionUser) {
+    user = sessionUser;
+  }
+
+  if (!user) {
+    const { data } = await state.supabase.auth.getSession();
+    user = data?.session?.user || null;
+  }
+
+  if (!user) {
+    const { data } = await state.supabase.auth.getUser();
+    user = data?.user || null;
+  }
+
+  if (!user) {
+    notify("Login completed but no user session was found. Refresh once and try again.", "error");
+    return;
+  }
+
   state.currentUser = user;
-  await ensureProfileRecord(user);
-  await loadProfile();
+  state.profile = buildProfileFallback(user);
   renderUserState();
+  await loadSellerDashboard();
+  renderSellerDashboard();
   dom.authForm.reset();
   hideModal("authModal");
   notify(state.authMode === "signup" ? "Account created." : "Logged in successfully.", "success");
-  await refreshAllData();
+  void syncSessionState(user);
 }
 
 function openUploadModal() {
@@ -692,6 +764,10 @@ function openUploadModal() {
     notify("Login is required before you can upload an outfit.", "info");
     return;
   }
+  dom.uploadForm.reset();
+  setUploadFeedback("");
+  dom.uploadRoyaltyPercent.value = "10";
+  dom.uploadForm.querySelector("button[type='submit']").disabled = false;
   showModal("uploadModal");
 }
 
@@ -699,63 +775,115 @@ async function handleUploadSubmit(event) {
   event.preventDefault();
   if (!state.currentUser) {
     showModal("authModal");
+    setUploadFeedback("Login is required before submitting an outfit.", "error");
     return;
   }
   if (!ensureSupabase()) {
+    setUploadFeedback("Supabase is not configured yet.", "error");
     return;
   }
 
+  const title = dom.uploadTitle.value.trim();
+  const category = dom.uploadCategory.value.trim();
+  const description = dom.uploadDescription.value.trim();
+  const requestedPrice = Number(dom.uploadPrice.value || 0);
   const files = [...dom.uploadImages.files];
-  if (files.length < 1 || files.length > 5) {
-    notify("Upload between 1 and 5 images.", "error");
+
+  if (!title || !category || !description || requestedPrice <= 0) {
+    setUploadFeedback("Complete all product fields before submitting.", "error");
     return;
   }
+  if (files.length < 1 || files.length > 5) {
+    setUploadFeedback("Upload between 1 and 5 images.", "error");
+    return;
+  }
+
+  dom.uploadForm.querySelector("button[type='submit']").disabled = true;
 
   const ownershipType = dom.uploadOwnership.value;
   const royaltyPercent = Number(dom.uploadRoyaltyPercent.value || 0);
-  const imageUrls = [];
 
-  for (const file of files) {
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-    const uploadRes = await state.supabase.storage.from(STORAGE_BUCKET).upload(fileName, file, { cacheControl: "3600", upsert: false });
-    if (uploadRes.error) {
-      notify(uploadRes.error.message, "error");
-      return;
+  try {
+    setUploadFeedback(`Preparing images... 0/${files.length}`, "info");
+    let completed = 0;
+    const processedImages = await Promise.all(files.map(async (file) => {
+      const blob = await fileToOptimizedBlob(file);
+      completed += 1;
+      setUploadFeedback(`Preparing images... ${completed}/${files.length}`, "info");
+      return { file, blob };
+    }));
+
+    const totalImageBytes = processedImages.reduce((sum, entry) => sum + entry.blob.size, 0);
+    if (totalImageBytes > 2_400_000) {
+      throw new Error(`Images are still too large after compression (${Math.ceil(totalImageBytes / 1024)} KB). Use smaller photos.`);
     }
-    const { data } = state.supabase.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-    imageUrls.push(data.publicUrl);
+
+    setUploadFeedback(`Uploading images... 0/${processedImages.length}`, "info");
+    const imageUrls = [];
+    for (let index = 0; index < processedImages.length; index += 1) {
+      const { file, blob } = processedImages[index];
+      const publicUrl = await uploadProductImage(file, blob);
+      imageUrls.push(publicUrl);
+      setUploadFeedback(`Uploading images... ${index + 1}/${processedImages.length}`, "info");
+    }
+
+    setUploadFeedback("Saving product for admin approval...", "info");
+    const payload = {
+      title,
+      description,
+      category,
+      images: imageUrls,
+      requested_price: requestedPrice,
+      final_price: requestedPrice,
+      seller_payout: ownershipType === "marketplace" ? requestedPrice : 0,
+      royalty_percent: ownershipType === "owned" ? (royaltyPercent || 10) : 0,
+      ownership_type: ownershipType,
+      approved: false,
+      active: true,
+      condition: dom.uploadCondition.value,
+      seller_id: state.currentUser.id,
+      total_rentals: 0,
+      max_rentals: 12,
+      damage_state: "active"
+    };
+
+    const insertPromise = state.supabase.from("products").insert(payload);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Product save timed out. This usually means the payload is too large or the products policy is still blocking the insert.")), 15000);
+    });
+    const result = await Promise.race([insertPromise, timeoutPromise]);
+    const error = result?.error;
+    if (error) {
+      throw new Error(`Product save failed: ${error.message}`);
+    }
+
+    dom.uploadForm.reset();
+    setUploadFeedback("Submitted for admin approval.", "success");
+    hideModal("uploadModal");
+    await refreshAllData();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Upload failed.";
+    setUploadFeedback(message, "error");
+    notify(message, "error");
+  } finally {
+    dom.uploadForm.querySelector("button[type='submit']").disabled = false;
   }
+}
 
-  const requestedPrice = Number(dom.uploadPrice.value || 0);
-  const payload = {
-    title: dom.uploadTitle.value.trim(),
-    description: dom.uploadDescription.value.trim(),
-    category: dom.uploadCategory.value.trim(),
-    images: imageUrls,
-    requested_price: requestedPrice,
-    final_price: requestedPrice,
-    seller_payout: ownershipType === "marketplace" ? requestedPrice : 0,
-    royalty_percent: ownershipType === "owned" ? (royaltyPercent || 10) : 0,
-    ownership_type: ownershipType,
-    approved: false,
-    active: true,
-    condition: dom.uploadCondition.value,
-    seller_id: state.currentUser.id,
-    total_rentals: 0,
-    max_rentals: 12,
-    damage_state: "active"
-  };
-
-  const { error } = await state.supabase.from("products").insert(payload);
-  if (error) {
-    notify(error.message, "error");
+function handleUploadInvalid(event) {
+  const field = event.target;
+  if (!(field instanceof HTMLElement)) {
     return;
   }
 
-  dom.uploadForm.reset();
-  hideModal("uploadModal");
-  notify("Submitted for admin approval.", "success");
-  await refreshAllData();
+  let label = "this field";
+  const wrapper = field.closest(".field");
+  const labelElement = wrapper?.querySelector("span");
+  if (labelElement?.textContent) {
+    label = labelElement.textContent.trim().toLowerCase();
+  }
+
+  setUploadFeedback(`Complete ${label} before submitting.`, "error");
 }
 
 function handleProductGridClick(event) {
@@ -775,7 +903,7 @@ function openRentalModal(product) {
   dom.rentalImage.src = product.images[0] || "";
   dom.rentalImage.alt = product.title;
   dom.rentalProductTitle.textContent = product.title;
-  dom.rentalProductMeta.textContent = `${product.category || "Curated"} • ${formatCurrency(product.final_price)}/day • ${formatText(product.condition)}`;
+  dom.rentalProductMeta.textContent = `${product.category || "Curated"} | ${formatCurrency(product.final_price)}/day | ${formatText(product.condition)}`;
   dom.rentalStartDate.value = "";
   dom.rentalEndDate.value = "";
   dom.rentalStartDate.min = toISODate(new Date());
@@ -1039,10 +1167,10 @@ async function handleAdminProductsClick(event) {
   }
 
   if (button.dataset.action === "approve-product") {
-    await updateProduct(product.id, { approved: true, active: true });
+    await updateProduct(product.id, { approved: true, active: true, rejection_reason: null });
   }
   if (button.dataset.action === "reject-product") {
-    await updateProduct(product.id, { approved: false, active: false });
+    openRejectModal(product);
   }
   if (button.dataset.action === "toggle-damage") {
     const damaged = product.damage_state !== "damaged";
@@ -1085,6 +1213,7 @@ function openProductEditor(product) {
   dom.editApproved.value = String(Boolean(product.approved));
   dom.editActive.value = String(Boolean(product.active));
   dom.editDamageState.value = product.damage_state || "active";
+  dom.editRejectionReason.value = product.rejection_reason || "";
   dom.editImages.value = (product.images || []).join(", ");
   showModal("productEditModal");
 }
@@ -1103,6 +1232,7 @@ async function handleProductEditSubmit(event) {
     approved: dom.editApproved.value === "true",
     active: dom.editActive.value === "true",
     damage_state: dom.editDamageState.value,
+    rejection_reason: dom.editRejectionReason.value.trim() || null,
     images: dom.editImages.value.split(",").map((value) => value.trim()).filter(Boolean)
   };
 
@@ -1114,6 +1244,27 @@ async function handleProductEditSubmit(event) {
   hideModal("productEditModal");
   notify("Product changes saved.", "success");
   await refreshAllData();
+}
+
+function openRejectModal(product) {
+  dom.rejectProductId.value = product.id;
+  dom.rejectReason.value = product.rejection_reason || "";
+  showModal("rejectModal");
+}
+
+async function handleRejectSubmit(event) {
+  event.preventDefault();
+  const reason = dom.rejectReason.value.trim();
+  if (!reason) {
+    notify("Add a rejection reason for the seller.", "error");
+    return;
+  }
+  await updateProduct(dom.rejectProductId.value, {
+    approved: false,
+    active: false,
+    rejection_reason: reason
+  });
+  hideModal("rejectModal");
 }
 
 function toggleCart(show) {
@@ -1177,6 +1328,118 @@ function notify(message, type = "info") {
   toast.innerHTML = `<strong>${escapeHtml(formatText(type))}</strong><div>${escapeHtml(message)}</div>`;
   dom.toastStack.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
+}
+
+function setUploadFeedback(message, type = "info") {
+  if (!dom.uploadFeedback) {
+    return;
+  }
+  dom.uploadFeedback.textContent = message || "";
+  dom.uploadFeedback.style.color = type === "error"
+    ? "#ff9898"
+    : type === "success"
+      ? "#d4a94a"
+      : "rgba(244, 220, 141, 0.82)";
+}
+
+async function fileToOptimizedBlob(file) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Only image files are allowed.");
+  }
+
+  const isScreenshot = /screenshot/i.test(file.name) || file.type === "image/png";
+  const bitmap = await createImageBitmap(file);
+  const maxDimension = isScreenshot ? 720 : 960;
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("Image processing is not supported in this browser.");
+  }
+
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  let blob = await canvasToBlob(canvas, isScreenshot ? 0.55 : 0.7);
+
+  if (!blob) {
+    throw new Error("Could not compress image.");
+  }
+
+  if (blob.size > 450_000) {
+    blob = await canvasToBlob(canvas, isScreenshot ? 0.42 : 0.55);
+  }
+
+  if (blob.size > 300_000) {
+    blob = await canvasToBlob(canvas, isScreenshot ? 0.32 : 0.42);
+  }
+
+  if (blob.size > (isScreenshot ? 220_000 : 300_000)) {
+    throw new Error(`One image is still too large after compression (${Math.ceil(blob.size / 1024)} KB). Use a smaller image.`);
+  }
+
+  return blob;
+}
+
+async function canvasToBlob(canvas, quality) {
+  return await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", quality);
+  });
+}
+
+async function uploadProductImage(file, blob) {
+  if (!state.currentUser) {
+    throw new Error("You are no longer logged in. Log in again before uploading images.");
+  }
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/\.[^.]+$/, "") || "image";
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const path = `${state.currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}.jpg`;
+    const uploadPromise = state.supabase.storage.from(STORAGE_BUCKET).upload(path, blob, {
+      contentType: "image/jpeg",
+      cacheControl: "3600",
+      upsert: false
+    });
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Image upload timed out for ${file.name}. Check the products bucket, storage policies, and your current login session.`)), 90000);
+    });
+
+    try {
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
+      if (result?.error) {
+        throw new Error(`Image upload failed: ${result.error.message}`);
+      }
+
+      const { data } = state.supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      if (!data?.publicUrl) {
+        throw new Error("Could not generate a public image URL.");
+      }
+
+      return data.publicUrl;
+    } catch (error) {
+      if (attempt === 2) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+  }
+}
+
+function isValidHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (_error) {
+    return false;
+  }
 }
 
 function isAdmin() {
@@ -1259,3 +1522,4 @@ function formatText(value) {
 function escapeHtml(value) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+

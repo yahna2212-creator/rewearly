@@ -540,7 +540,7 @@ th {
   height: 100%;
   object-fit: cover;
   image-rendering: auto;
-  filter: contrast(1.04) saturate(1.03);
+  filter: contrast(1.02) saturate(1.02) brightness(1.01);
   transition: transform 280ms ease;
 }
 
@@ -551,7 +551,7 @@ th {
 .rental-preview img {
   object-fit: cover;
   image-rendering: auto;
-  filter: contrast(1.04) saturate(1.03);
+  filter: contrast(1.02) saturate(1.02) brightness(1.01);
 }
 
 .card-chip-row,

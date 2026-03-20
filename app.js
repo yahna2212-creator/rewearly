@@ -1328,7 +1328,7 @@ async function fileToOptimizedBlob(file) {
 
   const isScreenshot = /screenshot/i.test(file.name) || file.type === "image/png";
   const bitmap = await createImageBitmap(file);
-  const maxDimension = isScreenshot ? 1280 : 1600;
+  const maxDimension = isScreenshot ? 1800 : 2400;
   const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -1346,21 +1346,21 @@ async function fileToOptimizedBlob(file) {
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  let blob = await canvasToBlob(canvas, isScreenshot ? 0.82 : 0.88);
+  let blob = await canvasToBlob(canvas, isScreenshot ? 0.94 : 0.96);
 
   if (!blob) {
     throw new Error("Could not compress image.");
   }
 
-  if (blob.size > 1_800_000) {
-    blob = await canvasToBlob(canvas, isScreenshot ? 0.72 : 0.8);
+  if (blob.size > 3_600_000) {
+    blob = await canvasToBlob(canvas, isScreenshot ? 0.88 : 0.92);
   }
 
-  if (blob.size > 1_200_000) {
-    blob = await canvasToBlob(canvas, isScreenshot ? 0.64 : 0.72);
+  if (blob.size > 2_800_000) {
+    blob = await canvasToBlob(canvas, isScreenshot ? 0.82 : 0.88);
   }
 
-  if (blob.size > (isScreenshot ? 950_000 : 1_200_000)) {
+  if (blob.size > (isScreenshot ? 2_200_000 : 3_200_000)) {
     throw new Error(`One image is still too large after compression (${Math.ceil(blob.size / 1024)} KB). Use a smaller image.`);
   }
 

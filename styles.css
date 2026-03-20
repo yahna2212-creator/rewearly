@@ -713,6 +713,10 @@ th {
   width: min(900px, 100%);
 }
 
+.payment-card {
+  width: min(620px, 100%);
+}
+
 .modal-close {
   position: absolute;
   top: 1rem;
@@ -761,6 +765,17 @@ th {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   gap: 1rem;
+}
+
+.payment-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.payment-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .rental-preview {

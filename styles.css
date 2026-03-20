@@ -536,11 +536,22 @@ th {
 }
 
 .product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+  filter: contrast(1.04) saturate(1.03);
   transition: transform 280ms ease;
 }
 
 .product-card:hover .product-image img {
   transform: scale(1.05);
+}
+
+.rental-preview img {
+  object-fit: cover;
+  image-rendering: auto;
+  filter: contrast(1.04) saturate(1.03);
 }
 
 .card-chip-row,

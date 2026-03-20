@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="browse-route">
   <div class="background-model" aria-hidden="true"></div>
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
@@ -55,6 +55,87 @@
       </div>
     </section>
 
+    <section class="section shell">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Search the collection</p>
+          <h2>Find your next rental by vibe, budget, or date.</h2>
+        </div>
+        <button class="ghost-btn" id="refreshBtn" type="button">Refresh</button>
+      </div>
+      <div class="filters glass-panel">
+        <label class="field"><span>Search</span><input id="searchInput" type="search" placeholder="Search title, description, category"></label>
+        <label class="field"><span>Category</span><select id="categoryFilter"><option value="">All categories</option></select></label>
+        <label class="field"><span>Max selling price</span><input id="priceFilter" type="number" min="0" placeholder="No cap"></label>
+        <button class="secondary-btn" id="clearFiltersBtn" type="button">Clear Filters</button>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Marketplace catalog</p>
+          <h2>Discover curated products sourced from sellers and priced by Rewearly.</h2>
+        </div>
+        <p class="muted" id="catalogSummary">Loading curated inventory...</p>
+      </div>
+      <div class="product-grid" id="productsGrid"></div>
+      <div class="empty-state glass-panel hidden" id="catalogEmpty">
+        <h3>No products match those filters.</h3>
+        <p>Try a broader date range, adjust your price ceiling, or clear filters.</p>
+      </div>
+    </section>
+
+    <section class="section shell dashboards">
+      <article class="glass-panel dashboard-card">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Seller portal</p>
+            <h2>Submit your piece, track review, and see the payout offered by Rewearly.</h2>
+            <p class="dashboard-status" id="sellerAccessStatus">Login required for seller tools.</p>
+          </div>
+          <button class="primary-btn" id="openUploadBtn" type="button">Upload Outfit</button>
+        </div>
+        <div class="stats-grid" id="sellerStats"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Product</th><th>Status</th><th>Details</th><th>Earnings</th></tr></thead>
+            <tbody id="sellerProductsTable"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="glass-panel dashboard-card" id="adminDashboardSection">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Admin command center</p>
+            <h2>Review seller submissions, set payout, and sell at your final platform price.</h2>
+          </div>
+          <button class="secondary-btn" id="reloadAdminBtn" type="button">Reload Admin Data</button>
+        </div>
+        <div class="stats-grid" id="adminStats"></div>
+        <div class="admin-layout">
+          <div class="admin-panel">
+            <h3>Orders</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Order</th><th>User</th><th>Status</th><th>Update</th></tr></thead>
+                <tbody id="ordersTable"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="admin-panel">
+            <h3>Products</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Product</th><th>State</th><th>Pricing</th><th>Action</th></tr></thead>
+                <tbody id="adminProductsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
   </main>
 
   <aside class="drawer hidden" id="cartDrawer" aria-hidden="true">

@@ -342,7 +342,7 @@ for select
 using (
   public.is_admin()
   or seller_id = auth.uid()
-  or (approved = true and active = true and damage_state = 'active')
+  or (approved = true and active = true and final_price > 0)
 );
 
 create policy "products seller insert own" on public.products
@@ -516,6 +516,8 @@ drop policy if exists "product images public read" on storage.objects;
 drop policy if exists "product images upload auth" on storage.objects;
 drop policy if exists "product images update auth" on storage.objects;
 drop policy if exists "product images delete auth" on storage.objects;
+drop policy if exists "product images update own or admin" on storage.objects;
+drop policy if exists "product images delete own or admin" on storage.objects;
 
 create policy "product images public read" on storage.objects
 for select

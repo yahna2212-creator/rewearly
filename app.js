@@ -997,6 +997,7 @@ async function checkout() {
     return;
   }
 
+  const purchaseDate = new Date().toISOString().slice(0, 10);
   const total = state.cart.reduce((sum, item) => sum + item.lineTotal, 0);
   const orderRes = await state.supabase.from("orders").insert({
     user_id: state.currentUser.id,
@@ -1013,8 +1014,8 @@ async function checkout() {
     order_id: orderRes.data.id,
     product_id: item.productId,
     booking_id: item.bookingId,
-    start_date: item.startDate,
-    end_date: item.endDate,
+    start_date: item.startDate || purchaseDate,
+    end_date: item.endDate || purchaseDate,
     daily_rate: item.dailyRate,
     rental_days: item.days,
     line_total: item.lineTotal

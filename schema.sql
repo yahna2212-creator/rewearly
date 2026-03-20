@@ -186,6 +186,8 @@ alter table public.order_items add column if not exists line_total numeric(10,2)
 alter table public.order_items add column if not exists earnings_generated boolean default false;
 alter table public.order_items add column if not exists rental_counted boolean default false;
 alter table public.order_items add column if not exists created_at timestamptz default now();
+alter table public.order_items alter column start_date drop not null;
+alter table public.order_items alter column end_date drop not null;
 
 create table if not exists public.earnings (
   id uuid primary key default gen_random_uuid()

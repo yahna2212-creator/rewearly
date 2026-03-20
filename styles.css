@@ -536,11 +536,22 @@ th {
 }
 
 .product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+  filter: contrast(1.04) saturate(1.03);
   transition: transform 280ms ease;
 }
 
 .product-card:hover .product-image img {
   transform: scale(1.05);
+}
+
+.rental-preview img {
+  object-fit: cover;
+  image-rendering: auto;
+  filter: contrast(1.04) saturate(1.03);
 }
 
 .card-chip-row,
@@ -987,11 +998,179 @@ body.admin-route .dashboard-card:first-child {
     grid-template-columns: 1fr;
   }
 
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .hero-copy,
+  .dashboard-card,
+  .upload-page-card,
+  .filters,
+  .modal-card {
+    padding: 1.25rem;
+  }
+
+  .hero-copy {
+    min-height: 64vh;
+  }
+
+  .hero-text {
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .hero-actions .primary-btn,
+  .hero-actions .ghost-btn {
+    width: 100%;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .price-line {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .price-line .primary-btn,
+  .price-line .secondary-btn,
+  .price-line .ghost-btn {
+    width: 100%;
+  }
+
+  .table-wrap table {
+    min-width: 720px;
+  }
+
+  .inline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .upload-page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .upload-page-head .ghost-btn {
+    width: 100%;
+  }
+
+  .auth-tabs {
+    flex-wrap: wrap;
+  }
+
   .drawer {
     top: auto;
     left: 12px;
     right: 12px;
     width: auto;
     bottom: 12px;
+    max-height: 78vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    width: min(100vw - 20px, 1240px);
+  }
+
+  .site-header {
+    padding: 14px 0 8px;
+  }
+
+  .brand {
+    gap: 0.75rem;
+  }
+
+  .brand-mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .brand h1 {
+    font-size: 1.45rem;
+  }
+
+  .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+  }
+
+  .hero h2 {
+    font-size: clamp(2.6rem, 12vw, 4rem);
+  }
+
+  .hero-tagline {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+
+  .section {
+    padding: 1rem 0;
+  }
+
+  .section-head h2,
+  .modal-head h2,
+  .upload-page-head h2 {
+    font-size: clamp(1.5rem, 7vw, 2.2rem);
+  }
+
+  .product-copy,
+  .stats-card,
+  .quote-panel,
+  .availability-panel,
+  .empty-state {
+    padding: 0.95rem;
+  }
+
+  th,
+  td {
+    padding: 0.75rem 0.8rem;
+    font-size: 0.92rem;
+  }
+
+  .modal {
+    padding: 0.5rem;
+  }
+
+  .modal-card {
+    padding: 1rem;
+    max-height: calc(100vh - 1rem);
+  }
+
+  .rental-layout,
+  .payment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-head,
+  .drawer-foot {
+    gap: 0.8rem;
+  }
+
+  .toast-stack {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
   }
 }

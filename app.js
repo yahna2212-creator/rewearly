@@ -1,4 +1,4 @@
-﻿const ADMIN_EMAIL = "yahna2212@gmail.com";
+const ADMIN_EMAIL = "yahna2212@gmail.com";
 const BUFFER_DAYS = 3;
 const LOCK_MINUTES = 30;
 const CART_STORAGE_KEY = "rewearly_cart_v1";
@@ -22,7 +22,8 @@ const state = {
   adminEarnings: [],
   selectedProduct: null,
   configErrorShown: false,
-  sessionSyncPromise: Promise.resolve()
+  sessionSyncPromise: Promise.resolve(),
+  sessionSyncTimer: null
 };
 
 const dom = {};
@@ -130,16 +131,27 @@ function setupSupabase() {
   }
 
   state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-  state.supabase.auth.onAuthStateChange(async (event, session) => {
+  state.supabase.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
-      await syncSessionState(null);
+      scheduleSessionSync(null);
       return;
     }
 
     if (session?.user) {
-      await syncSessionState(session.user);
+      scheduleSessionSync(session.user);
     }
   });
+}
+
+function scheduleSessionSync(user) {
+  if (state.sessionSyncTimer) {
+    clearTimeout(state.sessionSyncTimer);
+  }
+
+  state.sessionSyncTimer = setTimeout(() => {
+    state.sessionSyncTimer = null;
+    void syncSessionState(user);
+  }, 0);
 }
 
 async function bootstrap() {

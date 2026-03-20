@@ -156,6 +156,33 @@
     </div>
   </aside>
 
+  <div class="modal hidden" id="paymentModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card payment-card">
+      <button class="icon-btn modal-close" data-close-modal="paymentModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">UPI checkout</p>
+        <h2>Complete your payment</h2>
+        <p class="muted auth-note">Use any UPI app to pay this order. Your booking stays reserved while payment is pending.</p>
+      </div>
+      <div class="payment-grid">
+        <div class="quote-panel">
+          <div class="quote-line"><span>Order</span><strong id="paymentOrderCode">-</strong></div>
+          <div class="quote-line"><span>Total</span><strong id="paymentAmount">Rs 0</strong></div>
+          <div class="quote-line"><span>UPI ID</span><strong id="paymentUpiId">-</strong></div>
+          <div class="quote-line total"><span>Payee</span><strong id="paymentPayee">-</strong></div>
+        </div>
+        <div class="availability-panel">
+          <p class="muted" id="paymentInstruction">Open your preferred UPI app and complete the payment for this order reference.</p>
+          <div class="payment-actions">
+            <button class="primary-btn full-width" id="paymentOpenUpiBtn" type="button">Open UPI App</button>
+            <button class="secondary-btn full-width" id="paymentCopyUpiBtn" type="button">Copy UPI Link</button>
+            <button class="ghost-btn full-width" id="paymentCopyIdBtn" type="button">Copy UPI ID</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal hidden" id="authModal" aria-hidden="true">
     <div class="modal-card glass-panel auth-card">
       <button class="icon-btn modal-close" data-close-modal="authModal" type="button">x</button>
@@ -281,7 +308,9 @@
   <script>
     window.REWEARLY_CONFIG = window.REWEARLY_CONFIG || {
       supabaseUrl: "https://uigdcsgibwrvlyshegwq.supabase.co",
-      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpZ2Rjc2dpYndydmx5c2hlZ3dxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTMxMTUsImV4cCI6MjA4OTQyOTExNX0.5HV3ZGEPAdWbtNUSthcErZUHJuGG_P7pUQq1DjIsyHU"
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpZ2Rjc2dpYndydmx5c2hlZ3dxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTMxMTUsImV4cCI6MjA4OTQyOTExNX0.5HV3ZGEPAdWbtNUSthcErZUHJuGG_P7pUQq1DjIsyHU",
+      upiId: "8368081255@ybl",
+      upiPayeeName: "Rewearly"
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

@@ -70,6 +70,7 @@ alter table public.products add column if not exists royalty_percent numeric(5,2
 alter table public.products add column if not exists ownership_type text default 'marketplace';
 alter table public.products add column if not exists approved boolean default false;
 alter table public.products add column if not exists active boolean default true;
+alter table public.products add column if not exists seller_confirmed boolean default false;
 alter table public.products add column if not exists condition text default 'excellent';
 alter table public.products add column if not exists rejection_reason text;
 alter table public.products add column if not exists seller_id uuid references public.profiles(id) on delete set null;
@@ -92,6 +93,7 @@ set
   ownership_type = coalesce(ownership_type, 'marketplace'),
   approved = coalesce(approved, false),
   active = coalesce(active, true),
+  seller_confirmed = coalesce(seller_confirmed, false),
   condition = coalesce(condition, 'excellent'),
   total_rentals = coalesce(total_rentals, 0),
   max_rentals = coalesce(max_rentals, 12),
@@ -110,6 +112,7 @@ alter table public.products alter column royalty_percent set default 0;
 alter table public.products alter column ownership_type set default 'marketplace';
 alter table public.products alter column approved set default false;
 alter table public.products alter column active set default true;
+alter table public.products alter column seller_confirmed set default false;
 alter table public.products alter column condition set default 'excellent';
 alter table public.products alter column total_rentals set default 0;
 alter table public.products alter column max_rentals set default 12;
@@ -128,6 +131,7 @@ alter table public.products alter column royalty_percent set not null;
 alter table public.products alter column ownership_type set not null;
 alter table public.products alter column approved set not null;
 alter table public.products alter column active set not null;
+alter table public.products alter column seller_confirmed set not null;
 alter table public.products alter column condition set not null;
 alter table public.products alter column total_rentals set not null;
 alter table public.products alter column max_rentals set not null;
@@ -344,7 +348,7 @@ for select
 using (
   public.is_admin()
   or seller_id = auth.uid()
-  or (approved = true and active = true and final_price > 0)
+  or (approved = true and active = true and final_price > 0 and seller_confirmed = true)
 );
 
 create policy "products seller insert own" on public.products

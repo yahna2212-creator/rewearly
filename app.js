@@ -93,6 +93,7 @@ function bindEvents() {
   on(dom.cartItems, "click", handleCartClick);
   on(dom.ordersTable, "click", handleOrdersClick);
   on(dom.adminProductsTable, "click", handleAdminProductsClick);
+  on(dom.sellerProductsTable, "click", handleSellerProductsClick);
 
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -267,6 +268,7 @@ async function loadProducts() {
     .eq("approved", true)
     .eq("active", true)
     .gt("final_price", 0)
+    .eq("seller_confirmed", true)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -376,6 +378,7 @@ function normalizeProduct(product) {
     final_price: Number(product.final_price || product.requested_price || 0),
     requested_price: Number(product.requested_price || 0),
     seller_payout: Number(product.seller_payout || 0),
+    seller_confirmed: Boolean(product.seller_confirmed),
     royalty_percent: Number(product.royalty_percent || 0),
     total_rentals: Number(product.total_rentals || 0),
     max_rentals: Number(product.max_rentals || 12)
@@ -500,11 +503,12 @@ function renderSellerDashboard() {
   dom.sellerProductsTable.innerHTML = state.sellerProducts.map((product) => {
     const status = product.approved ? (product.active ? "Approved" : "Inactive") : "Pending";
     const pricingNote = getSellerPricingUpdateNote(product);
+    const needsSellerConfirmation = Boolean(product.approved || pricingNote) && !product.seller_confirmed && !product.rejection_reason;
     return `
       <tr>
         <td><strong>${escapeHtml(product.title)}</strong><br><span class="muted">${escapeHtml(product.category || "Uncategorized")}</span></td>
         <td><span class="status ${status.toLowerCase()}">${escapeHtml(status)}</span></td>
-        <td>Asked: ${formatCurrency(product.requested_price)}<br><span class="muted">Rewearly buy price: ${formatCurrency(product.seller_payout)}</span>${pricingNote ? `<br><span class="muted">${escapeHtml(pricingNote)}</span>` : ""}${product.rejection_reason ? `<br><span class="muted">Reason: ${escapeHtml(product.rejection_reason)}</span>` : ""}</td>
+        <td>Asked: ${formatCurrency(product.requested_price)}<br><span class="muted">Rewearly buy price: ${formatCurrency(product.seller_payout)}</span>${pricingNote ? `<br><span class="muted">${escapeHtml(pricingNote)}</span>` : ""}${product.seller_confirmed ? `<br><span class="muted">Seller confirmed to sell.</span>` : ""}${product.rejection_reason ? `<br><span class="muted">Reason: ${escapeHtml(product.rejection_reason)}</span>` : ""}${needsSellerConfirmation ? `<br><button class="mini-btn" data-action="confirm-sell-product" data-product-id="${product.id}" type="button">Confirm Sell To Rewearly</button>` : ""}</td>
         <td>${formatCurrency(earningsByProduct.get(product.id) || 0)}</td>
       </tr>
     `;
@@ -557,10 +561,11 @@ function renderAdminDashboard() {
     const stateLabel = product.approved
       ? (product.active ? "Live" : "Disabled")
       : (hasSitePrice ? "Awaiting review" : "Set site price");
+    const sellerConfirmedLabel = product.seller_confirmed ? "Seller confirmed" : "Awaiting seller";
     return `
       <tr>
         <td><strong>${escapeHtml(product.title)}</strong><br><span class="muted">${escapeHtml(product.category || "")}</span><br><span class="muted">${escapeHtml(product.seller_profile?.email || "No seller email")}</span><br><span class="muted">${escapeHtml(product.seller_profile?.address || "No seller address")}</span></td>
-        <td><span class="status ${stateLabel.toLowerCase().replace(/\s+/g, "-")}">${escapeHtml(stateLabel)}</span></td>
+        <td><span class="status ${stateLabel.toLowerCase().replace(/\s+/g, "-")}">${escapeHtml(stateLabel)}</span><br><span class="muted">${escapeHtml(sellerConfirmedLabel)}</span></td>
         <td><strong>Site price: ${hasSitePrice ? formatCurrency(product.final_price) : "Not set"}</strong><br><span class="muted">Buy from seller: ${formatCurrency(product.seller_payout)}</span><br><span class="muted">Seller asked: ${formatCurrency(product.requested_price)}</span></td>
         <td>
           <div class="inline-actions">
@@ -850,6 +855,7 @@ async function handleUploadSubmit(event) {
       ownership_type: "marketplace",
       approved: false,
       active: true,
+      seller_confirmed: false,
       condition: dom.uploadCondition.value,
       seller_id: state.currentUser.id,
       total_rentals: 0,
@@ -1154,6 +1160,29 @@ async function handleAdminProductsClick(event) {
   }
 }
 
+async function handleSellerProductsClick(event) {
+  const button = event.target.closest("[data-action='confirm-sell-product']");
+  if (!button || !state.currentUser || !ensureSupabase(true)) {
+    return;
+  }
+  const productId = button.dataset.productId;
+  const product = state.sellerProducts.find((entry) => String(entry.id) === String(productId));
+  if (!product) {
+    return;
+  }
+  const { error } = await state.supabase
+    .from("products")
+    .update({ seller_confirmed: true })
+    .eq("id", productId)
+    .eq("seller_id", state.currentUser.id);
+  if (error) {
+    notify(error.message, "error");
+    return;
+  }
+  notify("Seller confirmation saved.", "success");
+  await refreshAllData();
+}
+
 async function updateProduct(productId, changes) {
   const { error } = await state.supabase.from("products").update(changes).eq("id", productId);
   if (error) {
@@ -1189,6 +1218,7 @@ async function handleProductEditSubmit(event) {
     seller_payout: Number(dom.editSellerPayout.value || 0),
     royalty_percent: 0,
     ownership_type: "marketplace",
+    seller_confirmed: false,
     condition: dom.editCondition.value,
     approved: dom.editApproved.value === "true",
     active: dom.editActive.value === "true",

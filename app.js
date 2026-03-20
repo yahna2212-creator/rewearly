@@ -350,7 +350,10 @@ async function loadAdminDashboard() {
   state.adminOrders = ordersRes.data || [];
   state.adminEarnings = earningsRes.data || [];
 
-  const userIds = [...new Set(state.adminOrders.map((order) => order.user_id).filter(Boolean))];
+  const userIds = [...new Set([
+    ...state.adminOrders.map((order) => order.user_id).filter(Boolean),
+    ...state.adminProducts.map((product) => product.seller_id).filter(Boolean)
+  ])];
   const profilesMap = new Map();
   if (userIds.length) {
     const profilesRes = await state.supabase.from("profiles").select("*").in("id", userIds);
@@ -362,6 +365,7 @@ async function loadAdminDashboard() {
   }
 
   state.adminOrders = state.adminOrders.map((order) => ({ ...order, profile: profilesMap.get(order.user_id) || null }));
+  state.adminProducts = state.adminProducts.map((product) => ({ ...product, seller_profile: profilesMap.get(product.seller_id) || null }));
   renderAdminDashboard();
 }
 
@@ -535,7 +539,7 @@ function renderAdminDashboard() {
   dom.ordersTable.innerHTML = state.adminOrders.length ? state.adminOrders.map((order) => `
     <tr>
       <td><strong>#${String(order.id).slice(0, 8)}</strong><br><span class="muted">${formatDateTime(order.created_at)}</span></td>
-      <td>${escapeHtml(order.profile?.name || "Guest")}<br><span class="muted">${escapeHtml(order.profile?.email || "")}</span></td>
+      <td>${escapeHtml(order.profile?.name || "Guest")}<br><span class="muted">${escapeHtml(order.profile?.email || "")}</span><br><span class="muted">${escapeHtml(order.profile?.address || "No address")}</span></td>
       <td><span class="status ${order.status}">${escapeHtml(formatText(order.status))}</span></td>
       <td>
         <div class="inline-actions">
@@ -555,7 +559,7 @@ function renderAdminDashboard() {
       : (hasSitePrice ? "Awaiting review" : "Set site price");
     return `
       <tr>
-        <td><strong>${escapeHtml(product.title)}</strong><br><span class="muted">${escapeHtml(product.category || "")}</span></td>
+        <td><strong>${escapeHtml(product.title)}</strong><br><span class="muted">${escapeHtml(product.category || "")}</span><br><span class="muted">${escapeHtml(product.seller_profile?.email || "No seller email")}</span><br><span class="muted">${escapeHtml(product.seller_profile?.address || "No seller address")}</span></td>
         <td><span class="status ${stateLabel.toLowerCase().replace(/\s+/g, "-")}">${escapeHtml(stateLabel)}</span></td>
         <td><strong>Site price: ${hasSitePrice ? formatCurrency(product.final_price) : "Not set"}</strong><br><span class="muted">Buy from seller: ${formatCurrency(product.seller_payout)}</span><br><span class="muted">Seller asked: ${formatCurrency(product.requested_price)}</span></td>
         <td>

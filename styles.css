@@ -784,14 +784,18 @@ body.upload-route .upload-page {
   padding-top: 1rem;
 }
 
-body.browse-route main > section:nth-of-type(1),
-body.browse-route main > section:nth-of-type(4) {
+body.browse-route .hero,
+body.browse-route .dashboards {
   display: none;
 }
 
-body.seller-route main > section:nth-of-type(1),
-body.seller-route main > section:nth-of-type(2),
-body.seller-route main > section:nth-of-type(3) {
+body.browse-route .section {
+  padding-top: 1.25rem;
+}
+
+body.seller-route .hero,
+body.seller-route main > .section:nth-of-type(1),
+body.seller-route main > .section:nth-of-type(2) {
   display: none;
 }
 
@@ -799,9 +803,9 @@ body.seller-route #adminDashboardSection {
   display: none;
 }
 
-body.admin-route main > section:nth-of-type(1),
-body.admin-route main > section:nth-of-type(2),
-body.admin-route main > section:nth-of-type(3) {
+body.admin-route .hero,
+body.admin-route main > .section:nth-of-type(1),
+body.admin-route main > .section:nth-of-type(2) {
   display: none;
 }
 

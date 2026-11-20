@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rewearly | Premium Fashion Rental</title>
+  <meta name="description" content="Rewearly is a premium fashion marketplace where sellers submit pieces, Rewearly sets the buying price, and buyers shop the final curated listings.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="background-model" aria-hidden="true"></div>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="water-wave water-wave-one"></div>
+  <div class="water-wave water-wave-two"></div>
+
+  <header class="site-header shell" id="top">
+    <a href="index.html" class="brand">
+      <span class="brand-mark">
+        <img src="logo.png" alt="Rewearly logo">
+      </span>
+      <div>
+        <p class="eyebrow">Luxury fashion marketplace</p>
+        <h1>Rewearly</h1>
+      </div>
+    </a>
+    <nav class="header-actions">
+      <button class="ghost-btn" id="catalogBtn" type="button">Catalog</button>
+      <button class="ghost-btn" id="sellerDashboardBtn" type="button">Seller Portal</button>
+      <button class="ghost-btn hidden" id="adminBtn" type="button">Admin</button>
+      <button class="ghost-btn" id="cartBtn" type="button">Cart <span class="pill-count" id="cartCount">0</span></button>
+      <button class="primary-btn" id="authBtn" type="button">Login / Sign up</button>
+      <button class="ghost-btn hidden" id="logoutBtn" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <div class="shell">
+    <div class="auth-status glass-panel" id="authStatus">Not logged in.</div>
+  </div>
+
+  <main>
+    <section class="hero shell">
+      <div class="hero-copy glass-panel">
+        <p class="eyebrow">Curated fashion. Trusted mediation.</p>
+        <h2>Rewearly</h2>
+        <p class="hero-tagline">Rewear the extraordinary</p>
+        <p class="hero-text">Sellers submit their pieces, Rewearly sets the buying payout, and buyers shop the final curated listing at the platform price.</p>
+        <div class="hero-actions">
+          <button class="primary-btn" id="heroBrowseBtn" type="button">Browse Products</button>
+          <button class="ghost-btn" id="heroUploadBtn" type="button">List an Outfit</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <aside class="drawer hidden" id="cartDrawer" aria-hidden="true">
+    <div class="drawer-head">
+        <div><p class="eyebrow">Your shopping bag</p><h2>Cart</h2></div>
+      <button class="icon-btn" id="closeCartBtn" type="button" aria-label="Close cart">x</button>
+    </div>
+    <div class="drawer-body" id="cartItems"></div>
+    <div class="drawer-foot">
+      <div class="total-line"><span>Total</span><strong id="cartTotal">Rs 0</strong></div>
+      <button class="primary-btn full-width" id="checkoutBtn" type="button">Create Order & Pay via UPI</button>
+    </div>
+  </aside>
+
+  <div class="modal hidden" id="paymentModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card payment-card">
+      <button class="icon-btn modal-close" data-close-modal="paymentModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">UPI checkout</p>
+        <h2>Complete your payment</h2>
+        <p class="muted auth-note">Use any UPI app to pay this order. Rewearly will confirm the payment and complete the sale.</p>
+      </div>
+      <div class="payment-grid">
+        <div class="quote-panel">
+          <div class="quote-line"><span>Order</span><strong id="paymentOrderCode">-</strong></div>
+          <div class="quote-line"><span>Total</span><strong id="paymentAmount">Rs 0</strong></div>
+          <div class="quote-line"><span>UPI ID</span><strong id="paymentUpiId">-</strong></div>
+          <div class="quote-line total"><span>Payee</span><strong id="paymentPayee">-</strong></div>
+        </div>
+        <div class="availability-panel">
+          <p class="muted" id="paymentInstruction">Open your preferred UPI app and complete the payment for this order reference.</p>
+          <div class="payment-actions">
+            <button class="primary-btn full-width" id="paymentOpenUpiBtn" type="button">Open UPI App</button>
+            <button class="secondary-btn full-width" id="paymentCopyUpiBtn" type="button">Copy UPI Link</button>
+            <button class="ghost-btn full-width" id="paymentCopyIdBtn" type="button">Copy UPI ID</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="authModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card">
+      <button class="icon-btn modal-close" data-close-modal="authModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Single account for buyers and sellers</p>
+        <h2>Sign in or create your Rewearly profile</h2>
+        <p class="muted auth-note" id="authHelperText">Sign up once, then log in with the same email and password.</p>
+      </div>
+      <div class="auth-tabs">
+        <button class="tab-btn active" data-auth-mode="login" type="button">Login</button>
+        <button class="tab-btn" data-auth-mode="signup" type="button">Sign up</button>
+      </div>
+      <form id="authForm" class="form-grid">
+        <label class="field signup-only hidden"><span>Full name</span><input id="authName" type="text" maxlength="120" placeholder="Your name"></label>
+        <label class="field"><span>Email</span><input id="authEmail" type="email" required placeholder="name@example.com"></label>
+        <label class="field"><span>Password</span><input id="authPassword" type="password" required minlength="6" placeholder="Minimum 6 characters"></label>
+        <label class="field signup-only hidden"><span>Phone</span><input id="authPhone" type="tel" maxlength="20" placeholder="+91"></label>
+        <label class="field signup-only hidden"><span>Address</span><textarea id="authAddress" rows="3" placeholder="Delivery and pickup address"></textarea></label>
+        <button class="primary-btn full-width" id="authSubmitBtn" type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <section class="upload-page hidden" id="uploadModal" aria-hidden="true">
+    <div class="shell upload-page-shell">
+      <div class="upload-page-head">
+        <div>
+          <p class="eyebrow">Seller intake</p>
+          <h2>Submit a piece for Rewearly review and payout decision</h2>
+          <p class="muted auth-note">Upload 1 to 5 images from your device. Images are compressed automatically for faster saves.</p>
+        </div>
+        <button class="ghost-btn" data-close-modal="uploadModal" type="button">Back to site</button>
+      </div>
+      <div class="glass-panel upload-page-card">
+        <form id="uploadForm" class="form-grid two-column">
+          <label class="field"><span>Title</span><input id="uploadTitle" type="text" maxlength="180" required placeholder="Ivory embellished lehenga"></label>
+          <label class="field"><span>Category</span><input id="uploadCategory" type="text" maxlength="100" required placeholder="Lehenga, Gown, Blazer"></label>
+          <label class="field wide"><span>Description</span><textarea id="uploadDescription" rows="4" required placeholder="Fabric, fit, styling notes, sizing, and standout details"></textarea></label>
+          <label class="field"><span>Your asking price</span><input id="uploadPrice" type="number" min="1" step="1" required placeholder="5000"></label>
+          <label class="field"><span>Condition</span><select id="uploadCondition" required><option value="new_with_tags">New with tags</option><option value="excellent">Excellent</option><option value="very_good">Very good</option><option value="good">Good</option></select></label>
+          <label class="field wide"><span>Images (1-5)</span><input id="uploadImages" type="file" accept="image/*" multiple required></label>
+          <button class="primary-btn wide" type="submit">Submit for approval</button>
+          <p class="muted wide form-feedback" id="uploadFeedback"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div class="modal hidden" id="rentalModal" aria-hidden="true">
+    <div class="modal-card glass-panel rental-card">
+      <button class="icon-btn modal-close" data-close-modal="rentalModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Marketplace checkout</p>
+        <h2 id="rentalModalTitle">Add this product to your bag</h2>
+      </div>
+      <div class="rental-layout">
+        <div class="rental-preview">
+          <img id="rentalImage" src="" alt="">
+          <div><h3 id="rentalProductTitle"></h3><p id="rentalProductMeta" class="muted"></p></div>
+        </div>
+        <form id="rentalForm" class="form-grid">
+          <div class="quote-panel">
+            <div class="quote-line"><span>Purchase type</span><strong id="rentalDays">Direct purchase</strong></div>
+            <div class="quote-line"><span>Selling price</span><strong id="rentalRate">Rs 0</strong></div>
+            <div class="quote-line total"><span>Line total</span><strong id="rentalLineTotal">Rs 0</strong></div>
+          </div>
+          <button class="primary-btn full-width" type="submit">Add To Cart</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="productEditModal" aria-hidden="true">
+    <div class="modal-card glass-panel upload-card">
+      <button class="icon-btn modal-close" data-close-modal="productEditModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Admin product editor</p>
+        <h2>Edit listing details and pricing</h2>
+      </div>
+      <form id="productEditForm" class="form-grid two-column">
+        <input id="editProductId" type="hidden">
+        <label class="field"><span>Title</span><input id="editTitle" type="text" required></label>
+        <label class="field"><span>Category</span><input id="editCategory" type="text" required></label>
+        <label class="field wide"><span>Description</span><textarea id="editDescription" rows="4" required></textarea></label>
+        <label class="field"><span>Platform selling price</span><input id="editFinalPrice" type="number" min="0" step="1" required></label>
+        <label class="field"><span>Seller buy price</span><input id="editSellerPayout" type="number" min="0" step="1" required></label>
+        <label class="field"><span>Condition</span><select id="editCondition" required><option value="new_with_tags">New with tags</option><option value="excellent">Excellent</option><option value="very_good">Very good</option><option value="good">Good</option></select></label>
+        <label class="field"><span>Approved</span><select id="editApproved" required><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label class="field"><span>Active</span><select id="editActive" required><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label class="field wide"><span>Rejection reason</span><textarea id="editRejectionReason" rows="3" placeholder="Optional admin note for seller review"></textarea></label>
+        <label class="field wide"><span>Image URLs (comma separated)</span><textarea id="editImages" rows="3" placeholder="https://..., https://..."></textarea></label>
+        <button class="primary-btn wide" type="submit">Save product changes</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="rejectModal" aria-hidden="true">
+    <div class="modal-card glass-panel auth-card">
+      <button class="icon-btn modal-close" data-close-modal="rejectModal" type="button">x</button>
+      <div class="modal-head">
+        <p class="eyebrow">Admin review</p>
+        <h2>Reject product with reason</h2>
+      </div>
+      <form id="rejectForm" class="form-grid">
+        <input id="rejectProductId" type="hidden">
+        <label class="field">
+          <span>Reason for rejection</span>
+          <textarea id="rejectReason" rows="4" required placeholder="Tell the seller what needs to be fixed or why the product was rejected"></textarea>
+        </label>
+        <button class="primary-btn full-width" type="submit">Reject product</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script src="cart.bundle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

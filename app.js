@@ -1,18 +1,11 @@
-﻿const ADMIN_EMAIL = "yahna2212@gmail.com";
-const BUFFER_DAYS = 3;
-const LOCK_MINUTES = 30;
 const CART_STORAGE_KEY = "rewearly_cart_v1";
-const STORAGE_BUCKET = "products";
 
 const state = {
-  supabase: null,
   currentUser: null,
   profile: null,
   authMode: "login",
   products: [],
   filteredProducts: [],
-  bookings: [],
-  bookingsByProduct: new Map(),
   cart: [],
   sellerProducts: [],
   sellerEarnings: [],
@@ -21,9 +14,7 @@ const state = {
   adminOrders: [],
   adminEarnings: [],
   selectedProduct: null,
-  configErrorShown: false,
-  sessionSyncPromise: Promise.resolve(),
-  sessionSyncTimer: null
+  sessionSyncPromise: Promise.resolve()
 };
 
 const dom = {};
@@ -39,7 +30,6 @@ async function init() {
   renderCart();
   renderSellerDashboard();
   renderAdminDashboard();
-  setupSupabase();
   await bootstrap();
 }
 
@@ -90,7 +80,6 @@ function bindEvents() {
   });
 
   on(dom.productsGrid, "click", handleProductGridClick);
-  on(dom.cartItems, "click", handleCartClick);
   on(dom.ordersTable, "click", handleOrdersClick);
   on(dom.adminProductsTable, "click", handleAdminProductsClick);
   on(dom.sellerProductsTable, "click", handleSellerProductsClick);
@@ -122,48 +111,24 @@ function bindEvents() {
   on(dom.rejectForm, "submit", handleRejectSubmit);
 }
 
-function setupSupabase() {
-  const config = window.REWEARLY_CONFIG || {};
-  if (!config.supabaseUrl || !config.supabaseAnonKey || config.supabaseUrl.includes("YOUR_")) {
-    state.supabase = null;
-    return;
+async function api(route, method = "GET", body) {
+  const options = { method };
+  if (body !== undefined) {
+    options.headers = { "Content-Type": "application/json" };
+    options.body = JSON.stringify(body);
   }
-
-  state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-  state.supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_OUT") {
-      scheduleSessionSync(null);
-      return;
-    }
-
-    if (session?.user) {
-      scheduleSessionSync(session.user);
-    }
-  });
+  const response = await fetch("/api" + route, options);
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "The service is temporarily unavailable.");
+  return data;
 }
-
-function scheduleSessionSync(user) {
-  if (state.sessionSyncTimer) {
-    clearTimeout(state.sessionSyncTimer);
-  }
-
-  state.sessionSyncTimer = setTimeout(() => {
-    state.sessionSyncTimer = null;
-    void syncSessionState(user);
-  }, 0);
-}
-
 async function bootstrap() {
-  if (!ensureSupabase()) {
-    applyFilters();
-    return;
-  }
-
-  const { data, error } = await state.supabase.auth.getSession();
-  if (error) {
+  try {
+    await syncSessionState(await api("/auth/me"));
+  } catch (error) {
     notify(error.message, "error");
+    renderProducts([]);
   }
-  await syncSessionState(data?.session?.user || null);
 }
 
 async function syncSessionState(user) {
@@ -171,7 +136,7 @@ async function syncSessionState(user) {
     .catch(() => {})
     .then(async () => {
       state.currentUser = user;
-      await loadProfile();
+      state.profile = user;
       renderUserState();
       await refreshAllData();
     });
@@ -187,187 +152,40 @@ async function refreshAllData() {
   renderCart();
 }
 
-function ensureSupabase(quiet = false) {
-  if (state.supabase) {
-    return true;
-  }
-  if (!quiet && !state.configErrorShown) {
-    notify("Set your Supabase URL and anon key in window.REWEARLY_CONFIG before using live features.", "info");
-    state.configErrorShown = true;
-  }
-  return false;
-}
-
-async function loadProfile() {
-  state.profile = null;
-  if (!state.currentUser || !ensureSupabase(true)) {
-    return;
-  }
-
-  const { data, error } = await state.supabase.from("profiles").select("*").eq("id", state.currentUser.id).maybeSingle();
-  if (error) {
-    state.profile = buildProfileFallback(state.currentUser);
-    return;
-  }
-  state.profile = data || buildProfileFallback(state.currentUser);
-}
-
-function buildProfileFallback(user) {
-  const metadata = user?.user_metadata || {};
-  return user ? {
-    id: user.id,
-    name: metadata.name || user.email?.split("@")[0] || "Rewearly User",
-    email: user.email || "",
-    phone: metadata.phone || "Pending",
-    address: metadata.address || "Pending"
-  } : null;
-}
-
-async function ensureProfileRecord(user, options = {}) {
-  if (!user || !ensureSupabase(true)) {
-    return null;
-  }
-
-  const payload = buildProfileFallback(user);
-  const quiet = Boolean(options.quiet);
-
-  try {
-    const profilePromise = state.supabase
-      .from("profiles")
-      .upsert(payload, { onConflict: "id" });
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Profile sync timed out. Check profiles table policies in Supabase.")), 12000);
-    });
-    const result = await Promise.race([profilePromise, timeoutPromise]);
-    if (result?.error) {
-      if (!quiet) {
-        notify(result.error.message, "error");
-      }
-      return null;
-    }
-    return payload;
-  } catch (error) {
-    if (!quiet) {
-      notify(error instanceof Error ? error.message : "Profile sync failed.", "error");
-    }
-    return null;
-  }
-}
-
 async function loadProducts() {
-  if (!ensureSupabase(true)) {
-    state.products = [];
-    state.filteredProducts = [];
-    renderProducts([]);
-    return;
-  }
-
-  const { data, error } = await state.supabase
-    .from("products")
-    .select("*")
-    .eq("approved", true)
-    .eq("active", true)
-    .gt("final_price", 0)
-    .eq("seller_confirmed", true)
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  try {
+    state.products = (await api("/products")).map(normalizeProduct);
+    renderCategories();
+  } catch (error) {
     notify(error.message, "error");
-    return;
   }
-
-  state.products = (data || []).map(normalizeProduct);
-  renderCategories();
 }
-
 async function loadSellerDashboard() {
-  if (!state.currentUser || !ensureSupabase(true)) {
-    state.sellerProducts = [];
-    state.sellerEarnings = [];
-    state.sellerOrderItems = [];
-    renderSellerDashboard();
-    return;
-  }
-
-  const [productsRes, earningsRes] = await Promise.all([
-    state.supabase.from("products").select("*").eq("seller_id", state.currentUser.id).order("created_at", { ascending: false }),
-    state.supabase.from("earnings").select("*").eq("seller_id", state.currentUser.id).order("created_at", { ascending: false })
-  ]);
-
-  if (productsRes.error) {
-    notify(productsRes.error.message, "error");
-  }
-  if (earningsRes.error) {
-    notify(earningsRes.error.message, "error");
-  }
-
-  state.sellerProducts = (productsRes.data || []).map(normalizeProduct);
-  state.sellerEarnings = earningsRes.data || [];
+  state.sellerProducts = [];
+  state.sellerEarnings = [];
   state.sellerOrderItems = [];
-
-  const productIds = state.sellerProducts.map((product) => product.id);
-  if (productIds.length) {
-    const itemsRes = await state.supabase
-      .from("order_items")
-      .select("id, order_id, product_id, start_date, end_date, line_total")
-      .in("product_id", productIds)
-      .order("created_at", { ascending: false });
-
-    if (itemsRes.error) {
-      notify(itemsRes.error.message, "error");
-    } else {
-      state.sellerOrderItems = itemsRes.data || [];
-    }
+  if (state.currentUser) {
+    try {
+      const data = await api("/seller");
+      state.sellerProducts = data.products.map(normalizeProduct);
+      state.sellerEarnings = data.earnings;
+      state.sellerOrderItems = data.items;
+    } catch (error) { notify(error.message, "error"); }
   }
-
   renderSellerDashboard();
 }
-
 async function loadAdminDashboard() {
-  if (!isAdmin() || !ensureSupabase(true)) {
-    state.adminProducts = [];
-    state.adminOrders = [];
-    state.adminEarnings = [];
-    renderAdminDashboard();
-    return;
+  state.adminProducts = [];
+  state.adminOrders = [];
+  state.adminEarnings = [];
+  if (isAdmin()) {
+    try {
+      const data = await api("/admin");
+      state.adminProducts = data.products.map(normalizeProduct);
+      state.adminOrders = data.orders;
+      state.adminEarnings = data.earnings;
+    } catch (error) { notify(error.message, "error"); }
   }
-
-  const [productsRes, ordersRes, earningsRes] = await Promise.all([
-    state.supabase.from("products").select("*").order("created_at", { ascending: false }),
-    state.supabase.from("orders").select("id, user_id, total, status, created_at").order("created_at", { ascending: false }),
-    state.supabase.from("earnings").select("*").order("created_at", { ascending: false })
-  ]);
-
-  if (productsRes.error) {
-    notify(productsRes.error.message, "error");
-  }
-  if (ordersRes.error) {
-    notify(ordersRes.error.message, "error");
-  }
-  if (earningsRes.error) {
-    notify(earningsRes.error.message, "error");
-  }
-
-  state.adminProducts = (productsRes.data || []).map(normalizeProduct);
-  state.adminOrders = ordersRes.data || [];
-  state.adminEarnings = earningsRes.data || [];
-
-  const userIds = [...new Set([
-    ...state.adminOrders.map((order) => order.user_id).filter(Boolean),
-    ...state.adminProducts.map((product) => product.seller_id).filter(Boolean)
-  ])];
-  const profilesMap = new Map();
-  if (userIds.length) {
-    const profilesRes = await state.supabase.from("profiles").select("*").in("id", userIds);
-    if (profilesRes.error) {
-      notify(profilesRes.error.message, "error");
-    } else {
-      (profilesRes.data || []).forEach((profile) => profilesMap.set(profile.id, profile));
-    }
-  }
-
-  state.adminOrders = state.adminOrders.map((order) => ({ ...order, profile: profilesMap.get(order.user_id) || null }));
-  state.adminProducts = state.adminProducts.map((product) => ({ ...product, seller_profile: profilesMap.get(product.seller_id) || null }));
   renderAdminDashboard();
 }
 
@@ -586,23 +404,7 @@ function renderCart() {
   }
   cleanupExpiredCart();
   dom.cartCount.textContent = String(state.cart.length);
-  if (!state.cart.length) {
-    dom.cartItems.innerHTML = `<div class="empty-state"><h3>Your cart is empty.</h3><p>Add one or more products to continue.</p></div>`;
-    dom.cartTotal.textContent = formatCurrency(0);
-    return;
-  }
-
-  dom.cartItems.innerHTML = state.cart.map((item) => `
-    <article class="cart-item">
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>Direct purchase</p>
-      <p class="muted">${formatCurrency(item.dailyRate)} selling price</p>
-      <div class="price-line">
-        <strong>${formatCurrency(item.lineTotal)}</strong>
-        <button class="mini-btn" data-action="remove-cart-item" data-lock-id="${item.lockId}" type="button">Remove</button>
-      </div>
-    </article>
-  `).join("");
+  window.renderRewearlyCart(dom.cartItems, state.cart, formatCurrency, removeCartItem);
   dom.cartTotal.textContent = formatCurrency(state.cart.reduce((sum, item) => sum + item.lineTotal, 0));
 }
 
@@ -636,7 +438,7 @@ function renderAuthMode() {
   }
   if (dom.authHelperText) {
     dom.authHelperText.textContent = signup
-      ? "Create your account once. If Supabase email confirmation is enabled, confirm the email before logging in."
+      ? "Create your Rewearly account to continue."
       : "Use the same email and password you created during sign up.";
   }
 }
@@ -660,112 +462,33 @@ function handleAdminButton() {
 }
 
 async function logout() {
-  if (!ensureSupabase()) {
-    return;
-  }
-  const { error } = await state.supabase.auth.signOut();
-  if (error) {
-    notify(error.message, "error");
-    return;
-  }
-  state.currentUser = null;
-  state.profile = null;
-  notify("Logged out.", "info");
+  try {
+    await api("/auth/logout", "POST");
+    await syncSessionState(null);
+    notify("Logged out.", "success");
+  } catch (error) { notify(error.message, "error"); }
 }
-
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  if (!ensureSupabase()) {
-    return;
-  }
-
+  const signup = state.authMode === "signup";
   const email = dom.authEmail.value.trim();
   const password = dom.authPassword.value;
-  if (!email || !password) {
-    notify("Email and password are required.", "error");
-    return;
+  const body = { email, password };
+  if (signup) {
+    body.name = dom.authName.value.trim();
+    body.phone = dom.authPhone.value.trim();
+    body.address = dom.authAddress.value.trim();
   }
-
-  let authError = null;
-  let user = null;
-  let sessionUser = null;
-
-  if (state.authMode === "signup") {
-    const payload = { name: dom.authName.value.trim(), phone: dom.authPhone.value.trim(), address: dom.authAddress.value.trim() };
-    if (!payload.name || !payload.phone || !payload.address) {
-      notify("Name, phone, and address are required for sign up.", "error");
-      return;
-    }
-
-    const { data, error } = await state.supabase.auth.signUp({ email, password, options: { data: payload } });
-    authError = error;
-    user = data?.user || null;
-    const session = data?.session || null;
-    sessionUser = session?.user || null;
-
-    if (!authError && user) {
-      await ensureProfileRecord({
-        ...user,
-        email,
-        user_metadata: payload
-      }, { quiet: true });
-    }
-
-    if (!authError && !session) {
-      dom.authForm.reset();
-      hideModal("authModal");
-      notify("Account created. Check your email and confirm the account before logging in.", "info");
-      return;
-    }
-  } else {
-    const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
-    authError = error;
-    user = data?.user || null;
-    sessionUser = data?.session?.user || null;
-  }
-
-  if (authError) {
-    const message = String(authError.message || "");
-    if (message.toLowerCase().includes("invalid login credentials")) {
-      notify("Incorrect email or password. If this is your first time, create the account from Sign up first.", "error");
-      return;
-    }
-    if (message.toLowerCase().includes("email not confirmed")) {
-      notify("Your account exists, but the email is not confirmed yet. Verify it in your inbox or disable email confirmation in Supabase Auth settings.", "error");
-      return;
-    }
-    notify(message, "error");
-    return;
-  }
-
-  if (!user && sessionUser) {
-    user = sessionUser;
-  }
-
-  if (!user) {
-    const { data } = await state.supabase.auth.getSession();
-    user = data?.session?.user || null;
-  }
-
-  if (!user) {
-    const { data } = await state.supabase.auth.getUser();
-    user = data?.user || null;
-  }
-
-  if (!user) {
-    notify("Login completed but no user session was found. Refresh once and try again.", "error");
-    return;
-  }
-
-  state.currentUser = user;
-  state.profile = buildProfileFallback(user);
-  renderUserState();
-  await loadSellerDashboard();
-  renderSellerDashboard();
-  dom.authForm.reset();
-  hideModal("authModal");
-  notify(state.authMode === "signup" ? "Account created." : "Logged in successfully.", "success");
-  void syncSessionState(user);
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const user = await api(signup ? "/auth/register" : "/auth/login", "POST", body);
+    await syncSessionState(user);
+    dom.authForm.reset();
+    hideModal("authModal");
+    notify(signup ? "Account created." : "Logged in successfully.", "success");
+  } catch (error) { notify(error.message, "error"); }
+  finally { if (button) button.disabled = false; }
 }
 
 function openUploadModal() {
@@ -794,10 +517,6 @@ async function handleUploadSubmit(event) {
   if (!state.currentUser) {
     showModal("authModal");
     setUploadFeedback("Login is required before submitting an outfit.", "error");
-    return;
-  }
-  if (!ensureSupabase()) {
-    setUploadFeedback("Supabase is not configured yet.", "error");
     return;
   }
 
@@ -829,15 +548,15 @@ async function handleUploadSubmit(event) {
     }));
 
     const totalImageBytes = processedImages.reduce((sum, entry) => sum + entry.blob.size, 0);
-    if (totalImageBytes > 2_400_000) {
+    if (totalImageBytes > 1_950_000) {
       throw new Error(`Images are still too large after compression (${Math.ceil(totalImageBytes / 1024)} KB). Use smaller photos.`);
     }
 
     setUploadFeedback(`Uploading images... 0/${processedImages.length}`, "info");
     const imageUrls = [];
     for (let index = 0; index < processedImages.length; index += 1) {
-      const { file, blob } = processedImages[index];
-      const publicUrl = await uploadProductImage(file, blob);
+      const { blob } = processedImages[index];
+      const publicUrl = await imageDataUrl(blob);
       imageUrls.push(publicUrl);
       setUploadFeedback(`Uploading images... ${index + 1}/${processedImages.length}`, "info");
     }
@@ -863,15 +582,7 @@ async function handleUploadSubmit(event) {
       damage_state: "active"
     };
 
-    const insertPromise = state.supabase.from("products").insert(payload);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Product save timed out. This usually means the payload is too large or the products policy is still blocking the insert.")), 15000);
-    });
-    const result = await Promise.race([insertPromise, timeoutPromise]);
-    const error = result?.error;
-    if (error) {
-      throw new Error(`Product save failed: ${error.message}`);
-    }
+await api("/seller/products", "POST", payload);
 
     dom.uploadForm.reset();
     setUploadFeedback("Submitted for admin approval.", "success");
@@ -945,10 +656,11 @@ async function handleRentalSubmit(event) {
   }
   if (!state.currentUser) {
     showModal("authModal");
-    notify("Login is required before reserving rental dates.", "info");
+    notify("Login is required before adding an outfit to your cart.", "info");
     return;
   }
-  if (!ensureSupabase()) {
+  if (state.cart.some(item => item.productId === product.id)) {
+    notify("This outfit is already in your cart.", "info");
     return;
   }
   state.cart.push({
@@ -970,88 +682,33 @@ async function handleRentalSubmit(event) {
   notify("Product added to cart.", "success");
 }
 
-function handleCartClick(event) {
-  const button = event.target.closest("[data-action='remove-cart-item']");
-  if (button) {
-    removeCartItem(button.dataset.lockId);
-  }
-}
-
 async function removeCartItem(lockId) {
-  const item = state.cart.find((entry) => String(entry.lockId) === String(lockId));
-  state.cart = state.cart.filter((entry) => String(entry.lockId) !== String(lockId));
+  state.cart = state.cart.filter(item => String(item.lockId) !== String(lockId));
   persistCart();
-
-  if (item?.bookingId && ensureSupabase(true)) {
-    await state.supabase.from("bookings").update({
-      booking_status: "released",
-      blocked_until: new Date().toISOString()
-    }).eq("id", item.bookingId);
-  }
-
-  await refreshAllData();
+  renderCart();
 }
-
 async function checkout() {
   if (!state.currentUser) {
     showModal("authModal");
     notify("Login is required before checkout.", "info");
     return;
   }
-  if (!ensureSupabase()) {
-    return;
-  }
-  cleanupExpiredCart();
   if (!state.cart.length) {
     notify("Your cart is empty.", "error");
     return;
   }
-
-  const purchaseDate = new Date().toISOString().slice(0, 10);
-  const total = state.cart.reduce((sum, item) => sum + item.lineTotal, 0);
-  const orderRes = await state.supabase.from("orders").insert({
-    user_id: state.currentUser.id,
-    total,
-    status: "pending"
-  }).select().single();
-
-  if (orderRes.error) {
-    notify(orderRes.error.message, "error");
-    return;
-  }
-
-  const itemsRes = await state.supabase.from("order_items").insert(state.cart.map((item) => ({
-    order_id: orderRes.data.id,
-    product_id: item.productId,
-    booking_id: item.bookingId,
-    start_date: item.startDate || purchaseDate,
-    end_date: item.endDate || purchaseDate,
-    daily_rate: item.dailyRate,
-    rental_days: item.days,
-    line_total: item.lineTotal
-  })));
-
-  if (itemsRes.error) {
-    notify(itemsRes.error.message, "error");
-    return;
-  }
-
-  const bookingIds = state.cart.map((item) => item.bookingId).filter(Boolean);
-  if (bookingIds.length) {
-    const bookingRes = await state.supabase.from("bookings").update({ order_id: orderRes.data.id }).in("id", bookingIds);
-    if (bookingRes.error) {
-      notify(bookingRes.error.message, "error");
-      return;
-    }
-  }
-
-  state.cart = [];
-  persistCart();
-  renderCart();
-  toggleCart(false);
-  notify("Order created. Complete payment in your UPI app and wait for admin confirmation.", "success");
-  await refreshAllData();
-  window.location.href = `upi://pay?pa=8368081255@ybl&pn=Rewearly&am=${encodeURIComponent(total)}`;
+  dom.checkoutBtn.disabled = true;
+  try {
+    const order = await api("/orders", "POST", { productIds: state.cart.map(item => item.productId) });
+    state.cart = [];
+    persistCart();
+    renderCart();
+    toggleCart(false);
+    notify("Order created. Complete payment in your UPI app and wait for admin confirmation.", "success");
+    window.location.href = order.paymentUrl;
+    await refreshAllData();
+  } catch (error) { notify(error.message, "error"); }
+  finally { dom.checkoutBtn.disabled = false; }
 }
 
 async function handleOrdersClick(event) {
@@ -1066,63 +723,12 @@ async function handleOrdersClick(event) {
   }
 }
 
-async function updateOrderStatus(orderId, nextStatus) {
-  const { error } = await state.supabase.from("orders").update({ status: nextStatus }).eq("id", orderId);
-  if (error) {
-    notify(error.message, "error");
-    return;
-  }
-  await syncOrderSideEffects(orderId, nextStatus);
-  notify(`Order updated to ${formatText(nextStatus)}.`, "success");
-  await refreshAllData();
-}
-
-async function syncOrderSideEffects(orderId, status) {
-  const { data: items, error } = await state.supabase.from("order_items").select("*, products(*)").eq("order_id", orderId);
-  if (error) {
-    notify(error.message, "error");
-    return;
-  }
-
-  const bookingStatus = status === "completed" ? "completed" : status === "pending" ? "locked" : "confirmed";
-
-  for (const item of items || []) {
-    if (item.booking_id) {
-      await state.supabase.from("bookings").update({
-        booking_status: bookingStatus,
-        blocked_until: status === "pending" ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString() : null
-      }).eq("id", item.booking_id);
-    }
-
-    if (["paid", "dispatched", "delivered", "completed"].includes(status)) {
-      if (!item.earnings_generated) {
-        const product = normalizeProduct(item.products || {});
-        const amount = Number(product.seller_payout || 0);
-        const type = "seller_payout";
-        if (amount > 0 && product.seller_id) {
-          await state.supabase.from("earnings").insert({
-            seller_id: product.seller_id,
-            product_id: product.id,
-            order_id: orderId,
-            order_item_id: item.id,
-            amount,
-            type
-          });
-        }
-        await state.supabase.from("order_items").update({ earnings_generated: true }).eq("id", item.id);
-      }
-
-      if (!item.rental_counted) {
-        const product = normalizeProduct(item.products || {});
-        const nextRentals = Number(product.total_rentals || 0) + 1;
-        await state.supabase.from("products").update({
-          total_rentals: nextRentals,
-          active: false
-        }).eq("id", product.id);
-        await state.supabase.from("order_items").update({ rental_counted: true }).eq("id", item.id);
-      }
-    }
-  }
+async function updateOrderStatus(orderId, status) {
+  try {
+    await api("/admin/orders/" + encodeURIComponent(orderId), "PATCH", { status });
+    notify(`Order updated to ${formatText(status)}.`, "success");
+    await refreshAllData();
+  } catch (error) { notify(error.message, "error"); }
 }
 
 async function handleAdminProductsClick(event) {
@@ -1147,8 +753,8 @@ async function handleAdminProductsClick(event) {
     openRejectModal(product);
   }
   if (button.dataset.action === "delete-product") {
-    const { error } = await state.supabase.from("products").delete().eq("id", product.id);
-    if (error) {
+    try { await api("/admin/products/" + encodeURIComponent(product.id), "DELETE"); }
+    catch (error) {
       notify(error.message, "error");
       return;
     }
@@ -1162,35 +768,19 @@ async function handleAdminProductsClick(event) {
 
 async function handleSellerProductsClick(event) {
   const button = event.target.closest("[data-action='confirm-sell-product']");
-  if (!button || !state.currentUser || !ensureSupabase(true)) {
-    return;
-  }
-  const productId = button.dataset.productId;
-  const product = state.sellerProducts.find((entry) => String(entry.id) === String(productId));
-  if (!product) {
-    return;
-  }
-  const { error } = await state.supabase
-    .from("products")
-    .update({ seller_confirmed: true })
-    .eq("id", productId)
-    .eq("seller_id", state.currentUser.id);
-  if (error) {
-    notify(error.message, "error");
-    return;
-  }
-  notify("Seller confirmation saved.", "success");
-  await refreshAllData();
+  if (!button || !state.currentUser) return;
+  try {
+    await api("/seller/products/" + encodeURIComponent(button.dataset.productId) + "/confirm", "POST");
+    notify("Seller confirmation saved.", "success");
+    await refreshAllData();
+  } catch (error) { notify(error.message, "error"); }
 }
-
 async function updateProduct(productId, changes) {
-  const { error } = await state.supabase.from("products").update(changes).eq("id", productId);
-  if (error) {
-    notify(error.message, "error");
-    return;
-  }
-  notify("Product updated.", "success");
-  await refreshAllData();
+  try {
+    await api("/admin/products/" + encodeURIComponent(productId), "PATCH", changes);
+    notify("Product updated.", "success");
+    await refreshAllData();
+  } catch (error) { notify(error.message, "error"); }
 }
 
 function openProductEditor(product) {
@@ -1226,8 +816,8 @@ async function handleProductEditSubmit(event) {
     images: dom.editImages.value.split(",").map((value) => value.trim()).filter(Boolean)
   };
 
-  const { error } = await state.supabase.from("products").update(payload).eq("id", dom.editProductId.value);
-  if (error) {
+  try { await api("/admin/products/" + encodeURIComponent(dom.editProductId.value), "PATCH", payload); }
+  catch (error) {
     notify(error.message, "error");
     return;
   }
@@ -1373,56 +963,18 @@ async function canvasToBlob(canvas, quality) {
   });
 }
 
-async function uploadProductImage(file, blob) {
-  if (!state.currentUser) {
-    throw new Error("You are no longer logged in. Log in again before uploading images.");
-  }
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/\.[^.]+$/, "") || "image";
-
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const path = `${state.currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}.jpg`;
-    const uploadPromise = state.supabase.storage.from(STORAGE_BUCKET).upload(path, blob, {
-      contentType: "image/jpeg",
-      cacheControl: "3600",
-      upsert: false
-    });
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Image upload timed out for ${file.name}. Check the products bucket, storage policies, and your current login session.`)), 90000);
-    });
-
-    try {
-      const result = await Promise.race([uploadPromise, timeoutPromise]);
-      if (result?.error) {
-        throw new Error(`Image upload failed: ${result.error.message}`);
-      }
-
-      const { data } = state.supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-      if (!data?.publicUrl) {
-        throw new Error("Could not generate a public image URL.");
-      }
-
-      return data.publicUrl;
-    } catch (error) {
-      if (attempt === 2) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-    }
-  }
+function imageDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read this image."));
+    reader.readAsDataURL(blob);
+  });
 }
 
-function isValidHttpUrl(value) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch (_error) {
-    return false;
-  }
-}
 
 function isAdmin() {
-  return state.currentUser?.email === ADMIN_EMAIL;
+  return state.currentUser?.role === "admin";
 }
 
 function scrollToElement(element) {

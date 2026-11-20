@@ -1,0 +1,32 @@
+{
+  "name": "rewearly-mern",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.cjs",
+  "scripts": {
+    "test": "node --test",
+    "start": "node --env-file-if-exists=.env server.cjs",
+    "admin": "node --env-file-if-exists=.env admin.cjs",
+    "build": "esbuild frontend/cart.jsx --bundle --minify --outfile=public/cart.bundle.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.9.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "mongodb-memory-server": "^11.3.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
